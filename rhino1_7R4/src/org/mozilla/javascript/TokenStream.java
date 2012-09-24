@@ -84,6 +84,7 @@ class TokenStream
 // #string_id_map#
 // The following assumes that Token.EOF == 0
         final int
+            Id_batch         = Token.BATCH,
             Id_break         = Token.BREAK,
             Id_case          = Token.CASE,
             Id_continue      = Token.CONTINUE,
@@ -204,7 +205,10 @@ class TokenStream
                     break L;
                 case 'p': X="super";id=Id_super; break L;
                 case 'r': X="throw";id=Id_throw; break L;
-                case 't': X="catch";id=Id_catch; break L;
+                case 't': c=s.charAt(0);
+                    if (c=='b') { X="batch";id=Id_batch; }
+                    else if (c=='c') { X="catch";id=Id_catch; }
+                    break L;
                 } break L;
             case 6: switch (s.charAt(1)) {
                 case 'a': X="native";id=Id_native; break L;

@@ -14,11 +14,8 @@ import org.mozilla.javascript.Token;
  * <pre><b>for</b> [<b>each</b>] ( LeftHandSideExpression <b>in</b> Expression ) Statement</pre>
  * <pre><b>for</b> [<b>each</b>] ( <b>var</b> VariableDeclarationNoIn <b>in</b> Expression ) Statement</pre>
  */
-public class ForInLoop extends Loop {
+public class ForInLoop extends CommonInLoop {
 
-    protected AstNode iterator;
-    protected AstNode iteratedObject;
-    protected int inPosition = -1;
     protected int eachPosition = -1;
     protected boolean isForEach;
 
@@ -38,41 +35,6 @@ public class ForInLoop extends Loop {
     }
 
     /**
-     * Returns loop iterator expression
-     */
-    public AstNode getIterator() {
-        return iterator;
-    }
-
-    /**
-     * Sets loop iterator expression:  the part before the "in" keyword.
-     * Also sets its parent to this node.
-     * @throws IllegalArgumentException if {@code iterator} is {@code null}
-     */
-    public void setIterator(AstNode iterator) {
-        assertNotNull(iterator);
-        this.iterator = iterator;
-        iterator.setParent(this);
-    }
-
-    /**
-     * Returns object being iterated over
-     */
-    public AstNode getIteratedObject() {
-        return iteratedObject;
-    }
-
-    /**
-     * Sets object being iterated over, and sets its parent to this node.
-     * @throws IllegalArgumentException if {@code object} is {@code null}
-     */
-    public void setIteratedObject(AstNode object) {
-        assertNotNull(object);
-        this.iteratedObject = object;
-        object.setParent(this);
-    }
-
-    /**
      * Returns whether the loop is a for-each loop
      */
     public boolean isForEach() {
@@ -84,22 +46,6 @@ public class ForInLoop extends Loop {
      */
     public void setIsForEach(boolean isForEach) {
         this.isForEach = isForEach;
-    }
-
-    /**
-     * Returns position of "in" keyword
-     */
-    public int getInPosition() {
-        return inPosition;
-    }
-
-    /**
-     * Sets position of "in" keyword
-     * @param inPosition position of "in" keyword,
-     * or -1 if not present (e.g. in presence of a syntax error)
-     */
-    public void setInPosition(int inPosition) {
-        this.inPosition = inPosition;
     }
 
     /**
@@ -137,17 +83,5 @@ public class ForInLoop extends Loop {
             sb.append("\n").append(body.toSource(depth+1));
         }
         return sb.toString();
-    }
-
-    /**
-     * Visits this node, the iterator, the iterated object, and the body.
-     */
-    @Override
-    public void visit(NodeVisitor v) {
-        if (v.visit(this)) {
-            iterator.visit(v);
-            iteratedObject.visit(v);
-            body.visit(v);
-        }
     }
 }

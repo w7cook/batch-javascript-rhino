@@ -228,7 +228,9 @@ public class Token
         DEBUGGER       = 160,
         COMMENT        = 161,
         GENEXPR        = 162,
-        LAST_TOKEN     = 163;
+        LAST_TOKEN     = 163,
+
+        BATCH          = 164;
 
     /**
      * Returns a name for the token.  If Rhino is compiled with certain
@@ -413,6 +415,7 @@ public class Token
           case DEBUGGER:        return "DEBUGGER";
           case COMMENT:         return "COMMENT";
           case GENEXPR:         return "GENEXPR";
+          case BATCH:           return "BATCH";
         }
 
         // Token without name
@@ -459,6 +462,7 @@ public class Token
             case Token.INSTANCEOF: return "instanceof";
             case Token.THROW:      return "throw";
             case Token.TRY:        return "try";
+            case Token.BATCH:      return "batch";
             default:               return null;
         }
     }
