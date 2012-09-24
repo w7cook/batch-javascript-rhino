@@ -164,7 +164,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<AstNode> {
     return noimpl();
   }
 
-  private AstNode noimpl() {
+  private <E> E noimpl() {
     throw new RuntimeException("Not yet implemented");
   }
 }

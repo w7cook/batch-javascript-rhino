@@ -62,8 +62,13 @@ public class BatchCompiler implements NodeVisitor {
           System.out.println("Local:\n"+local.toSource());
           break;
         case REMOTE:
-          System.out.println("Remote:\n"+stage.action());
-          // TODO format it
+          System.out.println("Remote:\n"+stage.action().runExtra(new FormatPartition()));
+          //script = '...';
+          //var forest = BatchServer.send(script);
+          //for (var i=0; i<forest.length; i++) {
+          //  var INPUT = forest[i];
+          //  console.log(INPUT.g0);
+          //}
           break;
       }
     }
