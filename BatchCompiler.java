@@ -1,4 +1,4 @@
-// WHAT IS: CodeModel.factory.allowAllTransers, f.Mobile(...),
+// WHAT IS: f.Mobile(...),
 import org.mozilla.javascript.Parser;
 import org.mozilla.javascript.Token;
 import org.mozilla.javascript.ast.*;
