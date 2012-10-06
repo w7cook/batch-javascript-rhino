@@ -31,8 +31,11 @@ public class JSPartitionFactory extends PartitionFactoryHelper<AstNode> {
   }
 
   @Override
-  public AstNode Fun(String var, AstNode body) {
-    return noimpl();
+  public AstNode Fun(final String _var, final AstNode _body) {
+    return new FunctionNode() {{
+      addParam(new Name(0, _var));
+      setBody(_body);
+    }};
   }
 
   @Override
@@ -80,7 +83,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<AstNode> {
 
   @Override
   public AstNode Assign(AstNode target, AstNode source) {
-    return new Assignment(target, source);
+    return new Assignment(Token.ASSIGN, target, source, 0);
   }
 
   @Override
@@ -118,14 +121,8 @@ public class JSPartitionFactory extends PartitionFactoryHelper<AstNode> {
   }
 
   @Override
-  public AstNode Call(
-      final AstNode _target,
-      final String _method,
-      final List<AstNode> _args) {
-    return new FunctionCall() {{
-      setTarget(new PropertyGet(_target, new Name(0, _method)));
-      setArguments(_args);
-    }};
+  public AstNode Call(AstNode target, String method, List<AstNode> args) {
+    return DynamicCall(target, method, args);
   }
 
   @Override
@@ -136,8 +133,10 @@ public class JSPartitionFactory extends PartitionFactoryHelper<AstNode> {
   @Override
   public AstNode Out(String location, AstNode expression) {
     return new Assignment(
+      Token.ASSIGN,
       new PropertyGet(new Name(0, OUTPUT_NAME), new Name(0, location)),
-      expression
+      expression,
+      0
     );
   }
 
@@ -147,8 +146,14 @@ public class JSPartitionFactory extends PartitionFactoryHelper<AstNode> {
   }
 
   @Override
-  public AstNode DynamicCall(AstNode target, String method, List<AstNode> args) {
-    return noimpl();
+  public AstNode DynamicCall(
+      final AstNode _target,
+      final String _method,
+      final List<AstNode> _args) {
+    return new FunctionCall() {{
+      setTarget(new PropertyGet(_target, new Name(0, _method)));
+      setArguments(_args);
+    }};
   }
 
   @Override
