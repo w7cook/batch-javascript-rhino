@@ -17,14 +17,14 @@ public class JSToPartition {
   public <E> E exprFrom(PartitionFactory<E> f, AstNode node) {
     switch (node.getType()) {
       case Token.BLOCK:
-        return exprFrom(f, (Scope)node);
+        return exprFromScope(f, (Scope)node);
       case Token.CALL:
-        return exprFrom(f, (FunctionCall)node);
+        return exprFromFunctionCall(f, (FunctionCall)node);
       case Token.EXPR_RESULT:
       case Token.EXPR_VOID:
-        return exprFrom(f, (ExpressionStatement)node);
+        return exprFromExpressionStatement(f, (ExpressionStatement)node);
       case Token.NAME:
-        return exprFrom(f, (Name)node);
+        return exprFromName(f, (Name)node);
       // Binary operators
       // Note: AND and OR are not listed here, since they carry a different
       // meaning in javascript
@@ -39,27 +39,29 @@ public class JSToPartition {
       case Token.GT:
       case Token.LE:
       case Token.GE:
-        return exprFrom(f, (InfixExpression)node);
+        return exprFromInfixExpression(f, (InfixExpression)node);
       //case Token.NOT: // TODO: this has slightly different meaning in javascript
-      //  return exprFrom(f, (UnaryExpression)node);
+      //  return exprFromUnaryExpression(f, (UnaryExpression)node);
       case Token.STRING:
-        return exprFrom(f, (StringLiteral)node);
+        return exprFromStringLiteral(f, (StringLiteral)node);
       case Token.NUMBER:
-        return exprFrom(f, (NumberLiteral)node);
+        return exprFromNumberLiteral(f, (NumberLiteral)node);
     }
     System.out.println(Token.typeToName(node.getType()));
     return f.Skip();
   }
 
-  public <E> E exprFrom(PartitionFactory<E> f, Scope scope) {
+  private <E> E exprFromScope(PartitionFactory<E> f, Scope scope) {
     return f.Prim(Op.SEQ, mapExprFrom(f, scope.getStatements()));
   }
 
-  public <E> E exprFrom(PartitionFactory<E> f, ExpressionStatement statement) {
+  private <E> E exprFromExpressionStatement(
+      PartitionFactory<E> f,
+      ExpressionStatement statement) {
     return exprFrom(f, statement.getExpression());
   }
 
-  public <E> E exprFrom(PartitionFactory<E> f, FunctionCall call) {
+  private <E> E exprFromFunctionCall(PartitionFactory<E> f, FunctionCall call) {
     AstNode target = call.getTarget();
     switch (target.getType()) {
       case Token.GETPROP:
@@ -73,7 +75,7 @@ public class JSToPartition {
     return noimpl();
   }
 
-  public <E> E exprFrom(PartitionFactory<E> f, Name nameNode) {
+  private <E> E exprFromName(PartitionFactory<E> f, Name nameNode) {
     String name = nameNode.getIdentifier();
     if (name.equals(root)) { // TODO: inner scopes
       return f.Var(f.RootName());
@@ -84,7 +86,9 @@ public class JSToPartition {
     }
   }
 
-  public <E> E exprFrom(PartitionFactory<E> f, InfixExpression infix) {
+  private <E> E exprFromInfixExpression(
+      PartitionFactory<E> f,
+      InfixExpression infix) {
     Op binOp;
     switch (infix.getOperator()) {
       case Token.ADD: binOp = Op.ADD; break;
@@ -108,15 +112,19 @@ public class JSToPartition {
     );
   }
 
-  public <E> E exprFrom(PartitionFactory<E> f, StringLiteral literal) {
+  private <E> E exprFromStringLiteral(
+      PartitionFactory<E> f,
+      StringLiteral literal) {
     return f.Data(literal.getValue());
   }
 
-  public <E> E exprFrom(PartitionFactory<E> f, NumberLiteral literal) {
+  private <E> E exprFromNumberLiteral(
+      PartitionFactory<E> f,
+      NumberLiteral literal) {
     return f.Data((float)literal.getNumber());
   }
 
-  public <E> List<E> mapExprFrom(PartitionFactory<E> f, List<AstNode> nodes) {
+  private <E> List<E> mapExprFrom(PartitionFactory<E> f, List<AstNode> nodes) {
     List<E> exprs = new ArrayList<E>(nodes.size());
     for (AstNode node : nodes) {
       exprs.add(exprFrom(f, node));
