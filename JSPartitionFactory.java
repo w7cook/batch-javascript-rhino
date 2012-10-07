@@ -42,9 +42,9 @@ public class JSPartitionFactory extends PartitionFactoryHelper<AstNode> {
   public AstNode Prim(Op op, final List<AstNode> _args) {
     int type;
     if (op == Op.SEQ) {
-      return new Scope() {{
+      return new Block() {{
         for (AstNode node : _args) {
-          addChild(node);
+          addStatement(node);
         }
       }};
     }
@@ -116,8 +116,32 @@ public class JSPartitionFactory extends PartitionFactoryHelper<AstNode> {
   }
 
   @Override
-  public AstNode Loop(String var, AstNode collection, AstNode body) {
-    return noimpl();
+  public AstNode Loop(
+      final String _var,
+      final AstNode _collection,
+      final AstNode _body) {
+    final String unusedIncr = _var+"_i";
+    return new ForLoop() {{
+      setInitializer(new VariableDeclaration() {{
+        addVariable(new VariableInitializer() {{
+          setNodeType(Token.VAR);
+          setTarget(new Name(0, unusedIncr));
+          setInitializer(new NumberLiteral(0.0));
+        }});
+      }});
+      setCondition(new InfixExpression(
+        Token.LT,
+        new Name(0, unusedIncr),
+        Prop(_collection, "length"),
+        0
+      ));
+      setIncrement(new UnaryExpression(Token.INC, 0, new Name(0, unusedIncr)));
+      setBody(Let(
+        _var,
+        new ElementGet(_collection, new Name(0, unusedIncr)),
+        _body
+      ));
+    }};
   }
 
   @Override
@@ -167,6 +191,16 @@ public class JSPartitionFactory extends PartitionFactoryHelper<AstNode> {
       return exp;
     }
     return noimpl();
+  }
+
+  @Override
+  public AstNode Root() {
+    return Var(ROOT_VAR_NAME);
+  }
+
+  @Override
+  public AstNode Skip() {
+    return Prim(Op.SEQ);
   }
 
   private <E> E noimpl() {

@@ -50,8 +50,9 @@ public class BatchCompiler implements NodeVisitor {
         noimpl();
     }
     CodeModel.factory.allowAllTransers = true;
-    PExpr origExpr = new JSToPartition(rootName.getIdentifier())
-      .exprFrom(CodeModel.factory, batch.getBody());
+    PExpr origExpr =
+      new JSToPartition<PExpr>(CodeModel.factory, rootName.getIdentifier())
+        .exprFrom(batch.getBody());
     Environment env = new Environment(CodeModel.factory)
       .extend(CodeModel.factory.RootName(), null, Place.REMOTE);
     History history = origExpr.partition(Place.MOBILE, env);

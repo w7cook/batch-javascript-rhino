@@ -7,24 +7,26 @@ import batch.partition.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class JSToPartition {
+public class JSToPartition<E> {
+  private PartitionFactory<E> factory;
   private String root;
 
-  public JSToPartition(String root) {
+  public JSToPartition(PartitionFactory<E> factory, String root) {
+    this.factory = factory;
     this.root = root;
   }
 
-  public <E> E exprFrom(PartitionFactory<E> f, AstNode node) {
+  public E exprFrom(AstNode node) {
     switch (node.getType()) {
       case Token.BLOCK:
-        return exprFromScope(f, (Scope)node);
+        return exprFromScope((Scope)node);
       case Token.CALL:
-        return exprFromFunctionCall(f, (FunctionCall)node);
+        return exprFromFunctionCall((FunctionCall)node);
       case Token.EXPR_RESULT:
       case Token.EXPR_VOID:
-        return exprFromExpressionStatement(f, (ExpressionStatement)node);
+        return exprFromExpressionStatement((ExpressionStatement)node);
       case Token.NAME:
-        return exprFromName(f, (Name)node);
+        return exprFromName((Name)node);
       // Binary operators
       // Note: AND and OR are not listed here, since they carry a different
       // meaning in javascript
@@ -39,56 +41,76 @@ public class JSToPartition {
       case Token.GT:
       case Token.LE:
       case Token.GE:
-        return exprFromInfixExpression(f, (InfixExpression)node);
+        return exprFromInfixExpression((InfixExpression)node);
       //case Token.NOT: // TODO: this has slightly different meaning in javascript
-      //  return exprFromUnaryExpression(f, (UnaryExpression)node);
+      //  return exprFromUnaryExpression((UnaryExpression)node);
       case Token.STRING:
-        return exprFromStringLiteral(f, (StringLiteral)node);
+        return exprFromStringLiteral((StringLiteral)node);
       case Token.NUMBER:
-        return exprFromNumberLiteral(f, (NumberLiteral)node);
+        return exprFromNumberLiteral((NumberLiteral)node);
+      case Token.ASSIGN:
+        return exprFromAssignment((Assignment)node);
+      case Token.FOR:
+        if (node instanceof ForInLoop) {
+          return exprFromForInLoop((ForInLoop)node);
+        } else {
+          return exprFromOther(node);
+        }
+      case Token.VAR:
+        return exprFromVariableDeclaration((VariableDeclaration)node);
+      default:
+        System.out.println("INCOMPLETE: "+Token.typeToName(node.getType())+" "+node.getClass().getName());
+        return noimpl();
     }
-    System.out.println(Token.typeToName(node.getType()));
-    return f.Skip();
   }
 
-  private <E> E exprFromScope(PartitionFactory<E> f, Scope scope) {
-    return f.Prim(Op.SEQ, mapExprFrom(f, scope.getStatements()));
+  private List<E> mapExprFrom(List<AstNode> nodes) {
+    List<E> exprs = new ArrayList<E>(nodes.size());
+    for (AstNode node : nodes) {
+      exprs.add(exprFrom(node));
+    }
+    return exprs;
   }
 
-  private <E> E exprFromExpressionStatement(
-      PartitionFactory<E> f,
-      ExpressionStatement statement) {
-    return exprFrom(f, statement.getExpression());
+  private <E> E noimpl() {
+    throw new RuntimeException("Not yet implemented");
   }
 
-  private <E> E exprFromFunctionCall(PartitionFactory<E> f, FunctionCall call) {
+  private E exprFromScope(Scope scope) {
+    return factory.Prim(Op.SEQ, mapExprFrom(scope.getStatements()));
+  }
+
+  private E exprFromExpressionStatement(ExpressionStatement statement) {
+    return exprFrom(statement.getExpression());
+  }
+
+  private E exprFromFunctionCall(FunctionCall call) {
     AstNode target = call.getTarget();
     switch (target.getType()) {
       case Token.GETPROP:
         PropertyGet propGet = (PropertyGet)target;
-        return f.Call(
-          exprFrom(f, propGet.getTarget()),
+        return factory.Call(
+          exprFrom(propGet.getTarget()),
           propGet.getProperty().getIdentifier(),
-          mapExprFrom(f, call.getArguments())
+          mapExprFrom(call.getArguments())
         );
+      default:
+        return noimpl();
     }
-    return noimpl();
   }
 
-  private <E> E exprFromName(PartitionFactory<E> f, Name nameNode) {
+  private E exprFromName(Name nameNode) {
     String name = nameNode.getIdentifier();
     if (name.equals(root)) { // TODO: inner scopes
-      return f.Var(f.RootName());
-    } else if (name.equals(f.RootName())) {
+      return factory.Var(factory.RootName());
+    } else if (name.equals(factory.RootName())) {
       return noimpl(); // TODO: avoid collisions
     } else {
-      return f.Var(name);
+      return factory.Var(name);
     }
   }
 
-  private <E> E exprFromInfixExpression(
-      PartitionFactory<E> f,
-      InfixExpression infix) {
+  private E exprFromInfixExpression(InfixExpression infix) {
     Op binOp;
     switch (infix.getOperator()) {
       case Token.ADD: binOp = Op.ADD; break;
@@ -105,34 +127,102 @@ public class JSToPartition {
       default:
         return noimpl();
     }
-    return f.Prim(
+    return factory.Prim(
       binOp, 
-      exprFrom(f, infix.getLeft()),
-      exprFrom(f, infix.getRight())
+      exprFrom(infix.getLeft()),
+      exprFrom(infix.getRight())
     );
   }
 
-  private <E> E exprFromStringLiteral(
-      PartitionFactory<E> f,
-      StringLiteral literal) {
-    return f.Data(literal.getValue());
+  private E exprFromStringLiteral(StringLiteral literal) {
+    return factory.Data(literal.getValue());
   }
 
-  private <E> E exprFromNumberLiteral(
-      PartitionFactory<E> f,
-      NumberLiteral literal) {
-    return f.Data((float)literal.getNumber());
+  private E exprFromNumberLiteral(NumberLiteral literal) {
+    return factory.Data((float)literal.getNumber());
   }
 
-  private <E> List<E> mapExprFrom(PartitionFactory<E> f, List<AstNode> nodes) {
-    List<E> exprs = new ArrayList<E>(nodes.size());
-    for (AstNode node : nodes) {
-      exprs.add(exprFrom(f, node));
+  private E exprFromAssignment(Assignment assignment) {
+    switch (assignment.getOperator()) {
+      case Token.ASSIGN:
+        return factory.Assign(
+          exprFrom(assignment.getLeft()),
+          exprFrom(assignment.getRight())
+        );
+      case Token.ASSIGN_ADD:
+      case Token.ASSIGN_BITAND:
+      case Token.ASSIGN_BITOR:
+      case Token.ASSIGN_BITXOR:
+      case Token.ASSIGN_DIV:
+      case Token.ASSIGN_LSH:
+      case Token.ASSIGN_MOD:
+      case Token.ASSIGN_MUL:
+      case Token.ASSIGN_RSH:
+      case Token.ASSIGN_SUB:
+      case Token.ASSIGN_URSH:
+        return noimpl();
+      default:
+        return noimpl();
     }
-    return exprs;
   }
 
-  private <E> E noimpl() {
-    throw new RuntimeException("Not yet implemented");
+  private E exprFromForInLoop(ForInLoop loop) {
+    if (loop.isForEach()) {
+      return factory.Loop(
+        mustIdentifierOf(loop.getIterator()),
+        exprFrom(loop.getIteratedObject()),
+        exprFrom(loop.getBody())
+      );
+    } else {
+      return exprFromOther(loop);
+    }
+  }
+
+  private E exprFromVariableDeclaration(VariableDeclaration decl) {
+    List<VariableInitializer> inits = decl.getVariables();
+    if (decl.isStatement()) {
+      return noimpl();
+    } else {
+      String identifier = identifierOf(decl);
+      if (identifier == null) {
+        return exprFromOther(decl);
+      } else {
+        return factory.Var(identifier);
+      }
+    }
+  }
+
+  private E exprFromOther(AstNode node) {
+    return noimpl();
+  }
+
+  private String identifierOf(AstNode node) {
+    switch (node.getType()) {
+      case Token.NAME:
+        return ((Name)node).getIdentifier();
+      case Token.VAR:
+        VariableDeclaration decl = (VariableDeclaration)node;
+        List<VariableInitializer> inits = decl.getVariables();
+        VariableInitializer init = inits.get(0);
+        if (inits.size() == 1) {
+          if (init.getInitializer() == null && !init.isDestructuring()) {
+            return identifierOf(init.getTarget());
+          } else {
+            return null;
+          }
+        } else {
+          return null;
+        }
+      default:
+        return null;
+    }
+  }
+
+  private String mustIdentifierOf(AstNode node) {
+    String identifier = identifierOf(node);
+    if (identifier == null) {
+      return noimpl();
+    }
+    return identifier;
   }
 }

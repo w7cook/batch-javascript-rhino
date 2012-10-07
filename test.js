@@ -1,4 +1,7 @@
+var s = '';
 batch(var dir in dirServer) {
-  console.log(dir.getName() + " is " + x * 5);
-  dir.delete();
+  for each (var file in dir.getFiles()) {
+    s = s + file.getName() + ', ';
+  }
 }
+console.log(s);
