@@ -16,7 +16,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
   public JSGenerator Var(final String _name) {
     return new JSGenerator() {
       public AstNode generateNode(String in, String out) {
-        return genName(_name);
+        return JSUtil.genName(_name);
       }
     };
   }
@@ -26,10 +26,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
     return new JSGenerator() {
       public AstNode generateNode(String in, String out) {
         if (_value instanceof String) {
-          return new StringLiteral() {{
-            setValue((String)_value);
-            setQuoteCharacter('"');
-          }};
+          return JSUtil.genStringLiteral((String)_value, '"');
         } else if (_value instanceof Float) {
           return new NumberLiteral(((Float)_value).doubleValue());
         } else {
@@ -44,7 +41,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
     return new JSGenerator() {
       public AstNode generateNode(final String _in, final String _out) {
         return new FunctionNode() {{
-          addParam(genName(_var));
+          addParam(JSUtil.genName(_var));
           setBody(_body.generateNode(_in, _out));
         }};
       }
@@ -112,7 +109,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
       public AstNode generateNode(String in, String out) {
         return new PropertyGet(
           _base.generateNode(in, out),
-          genName(_field)
+          JSUtil.genName(_field)
         );
       }
     };
@@ -141,29 +138,13 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
       final JSGenerator _body) {
     return new JSGenerator() {
       public AstNode generateNode(final String _in, final String _out) {
-        return genLet(
+        return JSUtil.genLet(
           _var,
           _expression.generateNode(_in, _out),
           _body.generateNode(_in, _out)
         );
       }
     };
-  }
-
-  private AstNode genLet(
-      final String _var,
-      final AstNode _expression,
-      final AstNode _body) {
-    return new Scope() {{
-      addChild(new VariableDeclaration() {{
-        addVariable(new VariableInitializer() {{
-          setNodeType(Token.VAR);
-          setTarget(genName(_var));
-          setInitializer(_expression);
-        }});
-      }});
-      addChild(_body);
-    }};
   }
 
   @Override
@@ -189,53 +170,55 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
       final JSGenerator _body) {
     return new JSGenerator() {
       public AstNode generateNode(final String _in, final String _out) {
-        final String incrementer = _var+"_i";
-        AstNode _origCollectionNode = _collection.generateNode(_in, _out);
-        abstract class Gen<T> { public abstract T gen(); }
-        final Gen<AstNode> _collectionGen;
-        System.out.println("COL: "+_origCollectionNode.getClass().getName());
-        if (_origCollectionNode instanceof EmptyNode) {
-          _collectionGen = new Gen<AstNode>() {
-            public AstNode gen() {
-              return new PropertyGet(
-                new PropertyGet(genName(_in), genName("iterations")),
-                genName(_var)
-              );
-            }
-          };
-        } else {
-          _collectionGen = new Gen<AstNode>() {
-            public AstNode gen() {
-              return _collection.generateNode(_in, _out);
-            }
-          };
+        final String index = _var+"_i";
+        if (!(_collection.generateNode(_in, _out) instanceof EmptyNode)) {
+          return noimpl();
         }
+        //  _collectionGen = new Gen<AstNode>() {
+        //    public AstNode gen() {
+        //      return new PropertyGet(
+        //        new PropertyGet(
+        //          JSUtil.genName(_in),
+        //          JSUtil.genName("iterations")
+        //        ),
+        //        JSUtil.genName(_var)
+        //      );
+        //    }
+        //  };
         return new ForLoop() {{
-          setInitializer(new VariableDeclaration() {{
-            addVariable(new VariableInitializer() {{
-              setNodeType(Token.VAR);
-              setTarget(genName(incrementer));
-              setInitializer(new NumberLiteral(0.0));
-            }});
-          }});
+          setInitializer(
+            JSUtil.genDeclare(index, new NumberLiteral(0.0))
+          );
           setCondition(new InfixExpression(
             Token.LT,
-            genName(incrementer),
-            new PropertyGet(_collectionGen.gen(), genName("length")),
+            JSUtil.genName(index),
+            JSUtil.genCall(
+              JSUtil.genName(_in),
+              "getNumberOfIterations",
+              new ArrayList<AstNode>()
+            ),
+            //new PropertyGet(_collectionGen.gen(), JSUtil.genName("length")),
             0
           ));
           setIncrement(
-            new UnaryExpression(Token.INC, 0, genName(incrementer))
+            new UnaryExpression(Token.INC, 0, JSUtil.genName(index))
           );
-          setBody(genLet(
+          setBody(JSUtil.genLet(
             _var,
-            new ElementGet(
-              _collectionGen.gen(),
-              genName(incrementer)
+            //new ElementGet(
+            //  _collectionGen.gen(),
+            //  JSUtil.genName(index)
+            //),
+            JSUtil.genCall(
+              JSUtil.genName(_in),
+              "getIteration",
+              new ArrayList<AstNode>() {{
+                add(JSUtil.genName(index));
+              }}
             ),
             _body.generateNode(
-              _in  != null ? incrementer : null,
-              _out != null ? incrementer : null
+              _in  != null ? index : null,
+              _out != null ? index : null
             )
           ));
         }};
@@ -250,7 +233,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
       final List<JSGenerator> _args) {
     return new JSGenerator() {
       public AstNode generateNode(final String _in, final String _out) {
-        return genCall(
+        return JSUtil.genCall(
           _target.generateNode(_in, _out),
           _method,
           new ArrayList<AstNode>() {{
@@ -263,23 +246,20 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
     };
   }
 
-  private AstNode genCall(
-      final AstNode _target,
-      final String _method,
-      final List<AstNode> _args) {
-    return new FunctionCall() {{
-      setTarget(new PropertyGet(_target, genName(_method)));
-      setArguments(_args);
-    }};
-  }
-
   @Override
   public JSGenerator In(final String _location) {
     return new JSGenerator() {
       public AstNode generateNode(String in, String out) {
-        return new PropertyGet(
-          new PropertyGet(genName(in), genName("values")),
-          genName(_location)
+        //return new PropertyGet(
+        //  new PropertyGet(JSUtil.genName(in), JSUtil.genName("values")),
+        //  JSUtil.genName(_location)
+        //);
+        return JSUtil.genCall(
+          JSUtil.genName(in),
+          "get",
+          new ArrayList() {{
+            add(JSUtil.genStringLiteral(_location));
+          }}
         );
       }
     };
@@ -290,15 +270,23 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
       final String _location,
       final JSGenerator _expression) {
     return new JSGenerator() {
-      public AstNode generateNode(String in, String out) {
-        return new Assignment(
-          Token.ASSIGN,
-          new PropertyGet(
-            new PropertyGet(genName(out), genName("values")),
-            genName(_location)
-          ),
-          _expression.generateNode(in, out),
-          0
+      public AstNode generateNode(final String _in, final String _out) {
+        //return new Assignment(
+        //  Token.ASSIGN,
+        //  new PropertyGet(
+        //    new PropertyGet(JSUtil.genName(out), JSUtil.genName("values")),
+        //    JSUtil.genName(_location)
+        //  ),
+        //  _expression.generateNode(in, out),
+        //  0
+        //);
+        return JSUtil.genCall(
+          JSUtil.genName(_out),
+          "put",
+          new ArrayList() {{
+            add(JSUtil.genStringLiteral(_location));
+            add(_expression.generateNode(_in, _out));
+          }}
         );
       }
     };
@@ -343,7 +331,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
   public JSGenerator Root() {
     return new JSGenerator() {
       public AstNode generateNode(String in, String out) {
-        return genName(ROOT_VAR_NAME);
+        return JSUtil.genName(ROOT_VAR_NAME);
       }
     };
   }
@@ -356,9 +344,5 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
 
   private static <E> E noimpl() {
     throw new RuntimeException("Not yet implemented");
-  }
-
-  private static Name genName(String identifier) {
-    return new Name(0, identifier);
   }
 }
