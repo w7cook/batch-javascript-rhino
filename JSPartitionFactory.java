@@ -62,14 +62,17 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
           }
         }};
         if (_op == Op.SEQ) {
-          if (argNodes.size() == 0) {
-            return new EmptyNode();
-          } else {
-            return new Block() {{
-              for (AstNode node : argNodes) {
-                addStatement(node);
-              }
-            }};
+          switch (argNodes.size()) {
+            case 0:
+              return new EmptyNode();
+            case 1:
+              return argNodes.get(0);
+            default:
+              return new Block() {{
+                for (AstNode node : argNodes) {
+                  addStatement(node);
+                }
+              }};
           }
         }
         switch (_args.size()) {
