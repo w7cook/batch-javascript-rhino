@@ -257,7 +257,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
         return JSUtil.genCall(
           JSUtil.genName(in),
           "get",
-          new ArrayList() {{
+          new ArrayList<AstNode>() {{
             add(JSUtil.genStringLiteral(_location));
           }}
         );
@@ -283,7 +283,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
         return JSUtil.genCall(
           JSUtil.genName(_out),
           "put",
-          new ArrayList() {{
+          new ArrayList<AstNode>() {{
             add(JSUtil.genStringLiteral(_location));
             add(_expression.generateNode(_in, _out));
           }}
