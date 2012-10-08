@@ -245,10 +245,32 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
 
   @Override
   public JSGenerator Call(
-      JSGenerator target,
-      String method,
-      List<JSGenerator> args) {
-    return DynamicCall(target, method, args);
+      final JSGenerator _target,
+      final String _method,
+      final List<JSGenerator> _args) {
+    return new JSGenerator() {
+      public AstNode generateNode(final String _in, final String _out) {
+        return genCall(
+          _target.generateNode(_in, _out),
+          _method,
+          new ArrayList<AstNode>() {{
+            for (JSGenerator _arg : _args) {
+              add(_arg.generateNode(_in, _out));
+            }
+          }}
+        );
+      }
+    };
+  }
+
+  private AstNode genCall(
+      final AstNode _target,
+      final String _method,
+      final List<AstNode> _args) {
+    return new FunctionCall() {{
+      setTarget(new PropertyGet(_target, genName(_method)));
+      setArguments(_args);
+    }};
   }
 
   @Override
@@ -293,22 +315,12 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
 
   @Override
   public JSGenerator DynamicCall(
-      final JSGenerator _target,
-      final String _method,
-      final List<JSGenerator> _args) {
+      JSGenerator target,
+      String method,
+      List<JSGenerator> args) {
     return new JSGenerator() {
-      public AstNode generateNode(final String _in, final String _out) {
-        return new FunctionCall() {{
-          setTarget(
-            new PropertyGet(_target.generateNode(_in, _out),
-            genName(_method))
-          );
-          setArguments(new ArrayList<AstNode>() {{
-            for (JSGenerator _arg : _args) {
-              add(_arg.generateNode(_in, _out));
-            }
-          }});
-        }};
+      public AstNode generateNode(String in, String out) {
+        return noimpl();
       }
     };
   }
