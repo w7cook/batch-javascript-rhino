@@ -193,7 +193,13 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
             Token.LT,
             JSUtil.genName(index),
             JSUtil.genCall(
-              JSUtil.genName(_in),
+              JSUtil.genCall(
+                JSUtil.genName(_in),
+                "getIteration",
+                new ArrayList<AstNode>() {{
+                  add(JSUtil.genStringLiteral(_var));
+                }}
+              ),
               "getNumberOfIterations",
               new ArrayList<AstNode>()
             ),
@@ -210,15 +216,21 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
             //  JSUtil.genName(index)
             //),
             JSUtil.genCall(
-              JSUtil.genName(_in),
+              JSUtil.genCall(
+                JSUtil.genName(_in),
+                "getIteration",
+                new ArrayList<AstNode>() {{
+                  add(JSUtil.genStringLiteral(_var));
+                }}
+              ),
               "getIteration",
               new ArrayList<AstNode>() {{
                 add(JSUtil.genName(index));
               }}
             ),
             _body.generateNode(
-              _in  != null ? index : null,
-              _out != null ? index : null
+              _in  != null ? _var : null,
+              _out != null ? _var : null
             )
           ));
         }};

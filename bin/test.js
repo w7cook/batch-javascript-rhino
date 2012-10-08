@@ -1,8 +1,6 @@
-var s = '';
-var i = 232;
-batch(var dir in dirServer) {
-  for each (var file in dir.getFiles()) {
-    s = s + file.getPart(i) + ', ';
+batch (var root in service) {
+  console.log("Directory: " + root.getDir().getName());
+  for each (var file in root.getDir().listFiles()) {
+    console.log("^ " + file.getName());
   }
 }
-console.log(s);
