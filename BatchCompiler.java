@@ -59,7 +59,10 @@ public class BatchCompiler implements NodeVisitor {
     for (Stage stage : history) {
       switch (stage.place()) {
         case LOCAL:
-          AstNode local = stage.action().runExtra(new JSPartitionFactory());
+          AstNode local = stage
+            .action()
+            .runExtra(new JSPartitionFactory())
+            .generateNode("INPUT", "OUTPUT");
           System.out.println("Local:\n"+local.toSource());
           break;
         case REMOTE:

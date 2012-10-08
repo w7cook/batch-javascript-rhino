@@ -4,90 +4,150 @@ import org.mozilla.javascript.ast.*;
 import batch.Op;
 import batch.partition.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
-public class JSPartitionFactory extends PartitionFactoryHelper<AstNode> {
+public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
 
   public final static String INPUT_NAME = "INPUT";
   public final static String OUTPUT_NAME = "OUTPUT";
 
   @Override
-  public AstNode Var(String name) {
-    return new Name(0, name);
+  public JSGenerator Var(final String _name) {
+    return new JSGenerator() {
+      public AstNode generateNode(String in, String out) {
+        return genName(_name);
+      }
+    };
   }
 
   @Override
-  public AstNode Data(final Object _value) {
-    if (_value instanceof String) {
-      return new StringLiteral() {{
-        setValue((String)_value);
-        setQuoteCharacter('"');
-      }};
-    } else if (_value instanceof Float) {
-      return new NumberLiteral(((Float)_value).doubleValue());
-    } else {
-      return noimpl();
-    }
-  }
-
-  @Override
-  public AstNode Fun(final String _var, final AstNode _body) {
-    return new FunctionNode() {{
-      addParam(new Name(0, _var));
-      setBody(_body);
-    }};
-  }
-
-  @Override
-  public AstNode Prim(Op op, final List<AstNode> _args) {
-    int type;
-    if (op == Op.SEQ) {
-      return new Block() {{
-        for (AstNode node : _args) {
-          addStatement(node);
+  public JSGenerator Data(final Object _value) {
+    return new JSGenerator() {
+      public AstNode generateNode(String in, String out) {
+        if (_value instanceof String) {
+          return new StringLiteral() {{
+            setValue((String)_value);
+            setQuoteCharacter('"');
+          }};
+        } else if (_value instanceof Float) {
+          return new NumberLiteral(((Float)_value).doubleValue());
+        } else {
+          return noimpl();
         }
-      }};
-    }
-    switch (_args.size()) {
-      case 1:
-        switch (op) {
-          case NOT:
+      }
+    };
+  }
+
+  @Override
+  public JSGenerator Fun(final String _var, final JSGenerator _body) {
+    return new JSGenerator() {
+      public AstNode generateNode(final String _in, final String _out) {
+        return new FunctionNode() {{
+          addParam(genName(_var));
+          setBody(_body.generateNode(_in, _out));
+        }};
+      }
+    };
+  }
+
+  @Override
+  public JSGenerator Prim(final Op _op, final List<JSGenerator> _args) {
+    return new JSGenerator() {
+      public AstNode generateNode(final String _in, final String _out) {
+        int type;
+        final List<AstNode> argNodes = new ArrayList<AstNode>() {{
+          for (JSGenerator gen : _args) {
+            add(gen.generateNode(_in, _out));
+          }
+        }};
+        if (_op == Op.SEQ) {
+          if (argNodes.size() == 0) {
+            return new EmptyNode();
+          } else {
+            return new Block() {{
+              for (AstNode node : argNodes) {
+                addStatement(node);
+              }
+            }};
+          }
         }
-        return noimpl();
-      case 2:
-        switch (op) {
-          case ADD: type = Token.ADD; break;
-          case SUB: type = Token.SUB; break;
-          case MUL: type = Token.MUL; break;
-          case DIV: type = Token.DIV; break;
-          case MOD: type = Token.MOD; break;
-          case NE:  type = Token.NE;  break;
-          case EQ:  type = Token.EQ;  break;
-          case LT:  type = Token.LT;  break;
-          case GT:  type = Token.GT;  break;
-          case LE:  type = Token.LE;  break;
-          case GE:  type = Token.GE;  break;
+        switch (_args.size()) {
+          case 1:
+            switch (_op) {
+              case NOT:
+            }
+            return noimpl();
+          case 2:
+            switch (_op) {
+              case ADD: type = Token.ADD; break;
+              case SUB: type = Token.SUB; break;
+              case MUL: type = Token.MUL; break;
+              case DIV: type = Token.DIV; break;
+              case MOD: type = Token.MOD; break;
+              case NE:  type = Token.NE;  break;
+              case EQ:  type = Token.EQ;  break;
+              case LT:  type = Token.LT;  break;
+              case GT:  type = Token.GT;  break;
+              case LE:  type = Token.LE;  break;
+              case GE:  type = Token.GE;  break;
+              default:
+                return noimpl();
+            }
+            return
+              new InfixExpression(type, argNodes.get(0), argNodes.get(1), 0);
           default:
             return noimpl();
         }
-        return new InfixExpression(type, _args.get(0), _args.get(1), 0);
-      default:
-        return noimpl();
-    }
+      }
+    };
   }
 
   @Override
-  public AstNode Prop(AstNode base, String field) {
-    return new PropertyGet(base, new Name(0, field));
+  public JSGenerator Prop(final JSGenerator _base, final String _field) {
+    return new JSGenerator() {
+      public AstNode generateNode(String in, String out) {
+        return new PropertyGet(
+          _base.generateNode(in, out),
+          genName(_field)
+        );
+      }
+    };
   }
 
   @Override
-  public AstNode Assign(AstNode target, AstNode source) {
-    return new Assignment(Token.ASSIGN, target, source, 0);
+  public JSGenerator Assign(
+      final JSGenerator _target,
+      final JSGenerator _source) {
+    return new JSGenerator() {
+      public AstNode generateNode(String in, String out) {
+        return new Assignment(
+          Token.ASSIGN,
+          _target.generateNode(in, out),
+          _source.generateNode(in, out),
+          0
+        );
+      }
+    };
   }
 
   @Override
-  public AstNode Let(
+  public JSGenerator Let(
+      final String _var,
+      final JSGenerator _expression,
+      final JSGenerator _body) {
+    return new JSGenerator() {
+      public AstNode generateNode(final String _in, final String _out) {
+        return genLet(
+          _var,
+          _expression.generateNode(_in, _out),
+          _body.generateNode(_in, _out)
+        );
+      }
+    };
+  }
+
+  private AstNode genLet(
       final String _var,
       final AstNode _expression,
       final AstNode _body) {
@@ -95,7 +155,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<AstNode> {
       addChild(new VariableDeclaration() {{
         addVariable(new VariableInitializer() {{
           setNodeType(Token.VAR);
-          setTarget(new Name(0, _var));
+          setTarget(genName(_var));
           setInitializer(_expression);
         }});
       }});
@@ -104,106 +164,186 @@ public class JSPartitionFactory extends PartitionFactoryHelper<AstNode> {
   }
 
   @Override
-  public AstNode If(
-      final AstNode _condition,
-      final AstNode _thenExp,
-      final AstNode _elseExp) {
-    return new IfStatement() {{
-      setCondition(_condition);
-      setThenPart(_thenExp);
-      setElsePart(_elseExp);
-    }};
+  public JSGenerator If(
+      final JSGenerator _condition,
+      final JSGenerator _thenExp,
+      final JSGenerator _elseExp) {
+    return new JSGenerator() {
+      public AstNode generateNode(final String _in, final String _out) {
+        return new IfStatement() {{
+          setCondition(_condition.generateNode(_in, _out));
+          setThenPart(_thenExp.generateNode(_in, _out));
+          setElsePart(_elseExp.generateNode(_in, _out));
+        }};
+      }
+    };
   }
 
   @Override
-  public AstNode Loop(
+  public JSGenerator Loop(
       final String _var,
-      final AstNode _collection,
-      final AstNode _body) {
-    final String unusedIncr = _var+"_i";
-    return new ForLoop() {{
-      setInitializer(new VariableDeclaration() {{
-        addVariable(new VariableInitializer() {{
-          setNodeType(Token.VAR);
-          setTarget(new Name(0, unusedIncr));
-          setInitializer(new NumberLiteral(0.0));
-        }});
-      }});
-      setCondition(new InfixExpression(
-        Token.LT,
-        new Name(0, unusedIncr),
-        Prop(_collection, "length"),
-        0
-      ));
-      setIncrement(new UnaryExpression(Token.INC, 0, new Name(0, unusedIncr)));
-      setBody(Let(
-        _var,
-        new ElementGet(_collection, new Name(0, unusedIncr)),
-        _body
-      ));
-    }};
+      final JSGenerator _collection,
+      final JSGenerator _body) {
+    return new JSGenerator() {
+      public AstNode generateNode(final String _in, final String _out) {
+        final String incrementer = _var+"_i";
+        AstNode _origCollectionNode = _collection.generateNode(_in, _out);
+        abstract class Gen<T> { public abstract T gen(); }
+        final Gen<AstNode> _collectionGen;
+        System.out.println("COL: "+_origCollectionNode.getClass().getName());
+        if (_origCollectionNode instanceof EmptyNode) {
+          _collectionGen = new Gen<AstNode>() {
+            public AstNode gen() {
+              return new PropertyGet(
+                new PropertyGet(genName(_in), genName("iterations")),
+                genName(_var)
+              );
+            }
+          };
+        } else {
+          _collectionGen = new Gen<AstNode>() {
+            public AstNode gen() {
+              return _collection.generateNode(_in, _out);
+            }
+          };
+        }
+        return new ForLoop() {{
+          setInitializer(new VariableDeclaration() {{
+            addVariable(new VariableInitializer() {{
+              setNodeType(Token.VAR);
+              setTarget(genName(incrementer));
+              setInitializer(new NumberLiteral(0.0));
+            }});
+          }});
+          setCondition(new InfixExpression(
+            Token.LT,
+            genName(incrementer),
+            new PropertyGet(_collectionGen.gen(), genName("length")),
+            0
+          ));
+          setIncrement(
+            new UnaryExpression(Token.INC, 0, genName(incrementer))
+          );
+          setBody(genLet(
+            _var,
+            new ElementGet(
+              _collectionGen.gen(),
+              genName(incrementer)
+            ),
+            _body.generateNode(
+              _in  != null ? incrementer : null,
+              _out != null ? incrementer : null
+            )
+          ));
+        }};
+      }
+    };
   }
 
   @Override
-  public AstNode Call(AstNode target, String method, List<AstNode> args) {
+  public JSGenerator Call(
+      JSGenerator target,
+      String method,
+      List<JSGenerator> args) {
     return DynamicCall(target, method, args);
   }
 
   @Override
-  public AstNode In(String location) {
-    return new PropertyGet(new Name(0, INPUT_NAME), new Name(0, location));
+  public JSGenerator In(final String _location) {
+    return new JSGenerator() {
+      public AstNode generateNode(String in, String out) {
+        return new PropertyGet(
+          new PropertyGet(genName(in), genName("values")),
+          genName(_location)
+        );
+      }
+    };
   }
 
   @Override
-  public AstNode Out(String location, AstNode expression) {
-    return new Assignment(
-      Token.ASSIGN,
-      new PropertyGet(new Name(0, OUTPUT_NAME), new Name(0, location)),
-      expression,
-      0
-    );
+  public JSGenerator Out(
+      final String _location,
+      final JSGenerator _expression) {
+    return new JSGenerator() {
+      public AstNode generateNode(String in, String out) {
+        return new Assignment(
+          Token.ASSIGN,
+          new PropertyGet(
+            new PropertyGet(genName(out), genName("values")),
+            genName(_location)
+          ),
+          _expression.generateNode(in, out),
+          0
+        );
+      }
+    };
   }
 
   @Override
-  public AstNode Other(Object external, List<AstNode> subs) {
-    return noimpl();
+  public JSGenerator Other(Object external, List<JSGenerator> subs) {
+    return new JSGenerator() {
+      public AstNode generateNode(String in, String out) {
+        return noimpl();
+      }
+    };
   }
 
   @Override
-  public AstNode DynamicCall(
-      final AstNode _target,
+  public JSGenerator DynamicCall(
+      final JSGenerator _target,
       final String _method,
-      final List<AstNode> _args) {
-    return new FunctionCall() {{
-      setTarget(new PropertyGet(_target, new Name(0, _method)));
-      setArguments(_args);
-    }};
+      final List<JSGenerator> _args) {
+    return new JSGenerator() {
+      public AstNode generateNode(final String _in, final String _out) {
+        return new FunctionCall() {{
+          setTarget(
+            new PropertyGet(_target.generateNode(_in, _out),
+            genName(_method))
+          );
+          setArguments(new ArrayList<AstNode>() {{
+            for (JSGenerator _arg : _args) {
+              add(_arg.generateNode(_in, _out));
+            }
+          }});
+        }};
+      }
+    };
   }
 
   @Override
-  public AstNode Mobile(String type, AstNode exp) {
-    return noimpl();
+  public JSGenerator Mobile(String type, JSGenerator exp) {
+    return new JSGenerator() {
+      public AstNode generateNode(String in, String out) {
+        return noimpl();
+      }
+    };
   }
 
   @Override
-  public AstNode setExtra(AstNode exp, Object extra) {
-    if (extra == null) {
-      return exp;
-    }
-    return noimpl();
+  public JSGenerator setExtra(JSGenerator exp, Object extra) {
+    return exp.setExtra(extra);
   }
 
   @Override
-  public AstNode Root() {
-    return Var(ROOT_VAR_NAME);
+  public JSGenerator Root() {
+    return new JSGenerator() {
+      public AstNode generateNode(String in, String out) {
+        return genName(ROOT_VAR_NAME);
+      }
+    };
   }
 
   @Override
-  public AstNode Skip() {
+  public JSGenerator Skip() {
     return Prim(Op.SEQ);
   }
+  private class EmptyNode extends Block {}
 
-  private <E> E noimpl() {
+  private static <E> E noimpl() {
     throw new RuntimeException("Not yet implemented");
+  }
+
+  private static Name genName(String identifier) {
+    return new Name(0, identifier);
   }
 }
