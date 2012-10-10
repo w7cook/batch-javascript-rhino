@@ -67,7 +67,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
             default:
               return new Block() {{
                 for (AstNode node : argNodes) {
-                  addStatement(node);
+                  addStatement(new ExpressionStatement(node));
                 }
               }};
           }

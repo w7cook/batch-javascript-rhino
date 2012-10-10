@@ -39,12 +39,12 @@ public class BatchCompiler implements NodeVisitor {
       return true;
     }
     compiledBatchNode = new Scope();
-    compiledBatchNode.addChild(JSUtil.genDeclare(
+    compiledBatchNode.addChild(new ExpressionStatement(JSUtil.genDeclare(
       "s$",
       new NewExpression() {{
         setTarget(JSUtil.genName("Forest"));
       }}
-    ));
+    )));
 
     BatchLoop batch = (BatchLoop)node;
     String root = null;
@@ -87,11 +87,11 @@ public class BatchCompiler implements NodeVisitor {
           break;
         case REMOTE:
           String script = stage.action().runExtra(new FormatPartition());
-          compiledBatchNode.addChild(JSUtil.genDeclare(
+          compiledBatchNode.addChild(new ExpressionStatement(JSUtil.genDeclare(
             "script$",
             JSUtil.genStringLiteral(script)
-          ));
-          compiledBatchNode.addChild(JSUtil.genDeclare(
+          )));
+          compiledBatchNode.addChild(new ExpressionStatement(JSUtil.genDeclare(
             "r$",
             JSUtil.genCall(
               JSUtil.genName(service),
@@ -101,7 +101,7 @@ public class BatchCompiler implements NodeVisitor {
                 add(JSUtil.genName("s$"));
               }}
             )
-          ));
+          )));
           break;
       }
     }

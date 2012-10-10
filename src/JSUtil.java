@@ -27,7 +27,7 @@ public class JSUtil {
       final AstNode _expression,
       final AstNode _body) {
     return new Scope() {{
-      addChild(genDeclare(_var, _expression));
+      addChild(new ExpressionStatement(genDeclare(_var, _expression)));
       addChild(_body);
     }};
   }
