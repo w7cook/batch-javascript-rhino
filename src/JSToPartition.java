@@ -5,6 +5,8 @@ import batch.Op;
 import batch.partition.*;
 
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 
 public class JSToPartition<E> {
@@ -57,7 +59,10 @@ public class JSToPartition<E> {
           return exprFromOther(node);
         }
       case Token.VAR:
-        return exprFromVariableDeclaration((VariableDeclaration)node);
+        return exprFromVariableDeclaration(
+          (VariableDeclaration)node,
+          factory.Skip()
+        );
       default:
         System.out.println("INCOMPLETE: "+Token.typeToName(node.getType())+" "+node.getClass().getName());
         return noimpl();
@@ -72,12 +77,34 @@ public class JSToPartition<E> {
     return exprs;
   }
 
+  private E convertSequence(Iterator<AstNode> nodes) {
+    LinkedList<E> sequence = new LinkedList<E>();
+    while (nodes.hasNext()) {
+      AstNode node = nodes.next();
+      switch (node.getType()) {
+        case Token.VAR:
+          sequence.addLast(
+            exprFromVariableDeclaration(
+              (VariableDeclaration)node,
+              convertSequence(nodes) // Note: surrounding loop will end since
+                                     // recursive call will finish going
+                                     // through the iterator
+            )
+          );
+          break;
+        default:
+          sequence.addLast(exprFrom(node));
+      }
+    }
+    return factory.Prim(Op.SEQ, sequence);
+  }
+
   private <E> E noimpl() {
     throw new RuntimeException("Not yet implemented");
   }
 
   private E exprFromScope(Scope scope) {
-    return factory.Prim(Op.SEQ, mapExprFrom(scope.getStatements()));
+    return convertSequence(scope.getStatements().iterator());
   }
 
   private E exprFromExpressionStatement(ExpressionStatement statement) {
@@ -128,7 +155,7 @@ public class JSToPartition<E> {
         return noimpl();
     }
     return factory.Prim(
-      binOp, 
+      binOp,
       exprFrom(infix.getLeft()),
       exprFrom(infix.getRight())
     );
@@ -178,10 +205,23 @@ public class JSToPartition<E> {
     }
   }
 
-  private E exprFromVariableDeclaration(VariableDeclaration decl) {
-    List<VariableInitializer> inits = decl.getVariables();
+  private E exprFromVariableDeclaration(
+      VariableDeclaration decl,
+      E innerScope) {
     if (decl.isStatement()) {
-      return noimpl();
+      List<VariableInitializer> inits = decl.getVariables();
+      E result = innerScope;
+      for (VariableInitializer init : inits) {
+        E initialValue = init.getInitializer() != null
+          ? exprFrom(init.getInitializer())
+          : this.<E>noimpl();
+        result = factory.Let(
+          identifierOf(init.getTarget()),
+          initialValue,
+          result
+        );
+      }
+      return result;
     } else {
       String identifier = identifierOf(decl);
       if (identifier == null) {
@@ -203,8 +243,8 @@ public class JSToPartition<E> {
       case Token.VAR:
         VariableDeclaration decl = (VariableDeclaration)node;
         List<VariableInitializer> inits = decl.getVariables();
-        VariableInitializer init = inits.get(0);
         if (inits.size() == 1) {
+          VariableInitializer init = inits.get(0);
           if (init.getInitializer() == null && !init.isDestructuring()) {
             return identifierOf(init.getTarget());
           } else {
