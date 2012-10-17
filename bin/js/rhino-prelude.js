@@ -13,4 +13,4 @@ var console = {
   log: print
 };
 
-load('bin/compiled-test.js');
+load('bin/js/compiled-test.js');
