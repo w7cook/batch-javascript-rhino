@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.StringWriter;
 
 import java.util.ArrayList;
 
@@ -20,19 +21,34 @@ public class BatchCompiler implements NodeVisitor {
     String fileName = args[0];
     FileReader reader = new FileReader(new File(fileName));
     Parser parser = new Parser();
-      //new Parser(new CompilerEnvirons(), DefaultErrorReporter.instance);
+    // TODO: only parse batch code
     AstRoot ast = parser.parse(reader, fileName, /*linenumber*/ 0);
     BatchCompiler compiler = new BatchCompiler();
     ast.visit(compiler);
     if (compiler.compiledBatchNode != null) {
-      // TODO: replace code
-      System.out.println(compiler.compiledBatchNode.toSource());
+      // TODO: don't force load all of the file into memory
+      reader = new FileReader(new File(fileName));
+      StringWriter writer = new StringWriter();
+      int chr = reader.read();
+      while (chr != -1) {
+        writer.write(chr);
+        chr = reader.read();
+      }
+      String source = writer.toString();
+      int start = compiler.originalBatchNode.getAbsolutePosition();
+      int length = compiler.originalBatchNode.getLength();
+      source =
+        source.substring(0, start) +
+        compiler.compiledBatchNode.toSource() +
+        source.substring(start + length);
+      System.out.println(source);
     } else {
       System.out.println("No batch statement found");
     }
   }
 
   public AstNode compiledBatchNode;
+  public AstNode originalBatchNode;
 
   public boolean visit(AstNode node) {
     if (!(node instanceof BatchLoop)) {
@@ -41,12 +57,11 @@ public class BatchCompiler implements NodeVisitor {
     compiledBatchNode = new Scope();
     compiledBatchNode.addChild(new ExpressionStatement(JSUtil.genDeclare(
       "s$",
-      new NewExpression() {{
-        setTarget(JSUtil.genName("Forest"));
-      }}
+      new ObjectLiteral()
     )));
 
     BatchLoop batch = (BatchLoop)node;
+    originalBatchNode = batch;
     String root = null;
     switch (batch.getIterator().getType()) {
       case Token.VAR:
@@ -76,6 +91,9 @@ public class BatchCompiler implements NodeVisitor {
     Environment env = new Environment(CodeModel.factory)
       .extend(CodeModel.factory.RootName(), null, Place.REMOTE);
     History history = origExpr.partition(Place.MOBILE, env);
+    AstNode preNode = null;
+    String script = null;
+    AstNode postNode = null;
     for (Stage stage : history) {
       switch (stage.place()) {
         case LOCAL:
@@ -83,27 +101,40 @@ public class BatchCompiler implements NodeVisitor {
             .action()
             .runExtra(new JSPartitionFactory())
             .generateNode("r$", "s$");
-          compiledBatchNode.addChild(local);
+          if (preNode == null && script == null) {
+            preNode = local;
+          } else {
+            postNode = local;
+          }
           break;
         case REMOTE:
-          String script = stage.action().runExtra(new FormatPartition());
-          compiledBatchNode.addChild(new ExpressionStatement(JSUtil.genDeclare(
-            "script$",
-            JSUtil.genStringLiteral(script)
-          )));
-          compiledBatchNode.addChild(new ExpressionStatement(JSUtil.genDeclare(
-            "r$",
-            JSUtil.genCall(
-              JSUtil.genName(service),
-              "execute",
-              new ArrayList<AstNode>() {{
-                add(JSUtil.genName("script$"));
-                add(JSUtil.genName("s$"));
-              }}
-            )
-          )));
+          script = stage.action().runExtra(new FormatPartition());
           break;
       }
+    }
+    if (preNode != null) {
+      compiledBatchNode.addChild(preNode);
+    }
+    if (script != null) {
+      compiledBatchNode.addChild(new ExpressionStatement(JSUtil.genDeclare(
+        "script$",
+        JSUtil.genStringLiteral(script)
+      )));
+      final AstNode _postNode = postNode;
+      compiledBatchNode.addChild(new ExpressionStatement(JSUtil.genCall(
+        JSUtil.genName(service),
+        "execute",
+        new ArrayList<AstNode>() {{
+          add(JSUtil.genName("script$"));
+          add(JSUtil.genName("s$"));
+          add(new FunctionNode() {{
+            addParam(JSUtil.genName("r$"));
+            setBody(_postNode != null ? _postNode : new EmptyStatement());
+          }});
+        }}
+      )));
+    } else {
+      noimpl();
     }
     return false;
   }
