@@ -1,1 +1,0 @@
-bin\bat\build-batch-compiler.bat && java -cp build\js-batch.jar;lib\batches.jar;classes BatchCompiler bin\js\test.js > bin\js\compiled-test.js && java -cp "rhino1_7R4\js.jar;lib\batches.jar;lib\jackson-core-asl-1.3.2.jar" org.mozilla.javascript.tools.shell.Main "bin\js\rhino-prelude.js"
