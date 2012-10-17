@@ -5,3 +5,4 @@ build
 server-test
 TODO
 bin/js/compiled-test.js
+ignore
