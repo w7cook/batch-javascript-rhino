@@ -19,6 +19,9 @@ public class JSToPartition<E> {
   }
 
   public E exprFrom(AstNode node) {
+    if (node == null) {
+      return factory.Skip();
+    }
     switch (node.getType()) {
       case Token.BLOCK:
         return exprFromScope((Scope)node);
@@ -63,6 +66,8 @@ public class JSToPartition<E> {
           (VariableDeclaration)node,
           factory.Skip()
         );
+      case Token.IF:
+        return exprFromIfStatement((IfStatement)node);
       default:
         System.out.println("INCOMPLETE: "+Token.typeToName(node.getType())+" "+node.getClass().getName());
         return noimpl();
@@ -230,6 +235,16 @@ public class JSToPartition<E> {
         return factory.Var(identifier);
       }
     }
+  }
+
+  private E exprFromIfStatement(IfStatement ifStmt) {
+    // TODO: work for non boolean conditionals,
+    // like strings, numbers, undefined, null, and objects.
+    return factory.If(
+      exprFrom(ifStmt.getCondition()),
+      exprFrom(ifStmt.getThenPart()),
+      exprFrom(ifStmt.getElsePart())
+    );
   }
 
   private E exprFromOther(AstNode node) {

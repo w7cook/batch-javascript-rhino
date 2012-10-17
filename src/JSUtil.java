@@ -53,4 +53,13 @@ public class JSUtil {
       setArguments(_args);
     }};
   }
+
+  public static AstNode genStatement(AstNode node) {
+    switch (node.getType()) {
+      case Token.BLOCK:
+        return node;
+      default:
+        return new ExpressionStatement(node);
+    }
+  }
 }

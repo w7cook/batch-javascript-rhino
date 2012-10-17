@@ -67,7 +67,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
             default:
               return new Block() {{
                 for (AstNode node : argNodes) {
-                  addStatement(new ExpressionStatement(node));
+                  addStatement(JSUtil.genStatement(node));
                 }
               }};
           }
@@ -155,9 +155,13 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
     return new JSGenerator() {
       public AstNode generateNode(final String _in, final String _out) {
         return new IfStatement() {{
-          setCondition(_condition.generateNode(_in, _out));
-          setThenPart(_thenExp.generateNode(_in, _out));
-          setElsePart(_elseExp.generateNode(_in, _out));
+          setCondition(JSUtil.genCall(
+            _condition.generateNode(_in, _out),
+            "booleanValue",
+            new ArrayList()
+          ));
+          setThenPart(JSUtil.genStatement(_thenExp.generateNode(_in, _out)));
+          setElsePart(JSUtil.genStatement(_elseExp.generateNode(_in, _out)));
         }};
       }
     };
@@ -350,7 +354,11 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
 
   @Override
   public JSGenerator Skip() {
-    return Prim(Op.SEQ);
+    return new JSGenerator() {
+      public AstNode generateNode(String in, String out) {
+        return new EmptyStatement();
+      }
+    };
   }
   private class EmptyNode extends Block {}
 
