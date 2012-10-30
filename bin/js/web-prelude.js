@@ -30,10 +30,10 @@ window.onload = (function(old_onload) {
       execute: function(script, data, callback) {
         callbacks.splice(0,0,callback); // queues callback
         function try_send() {
-          if (!websocket.readyState) {
+          if (websocket.readyState != WebSocket.OPEN) {
             setTimeout(try_send, 10);
-          } else if (!websocket.send(script)) {
-            throw new Error('Failed to send script to server');
+          } else {
+            websocket.send(script);
           }
         }
         try_send();
