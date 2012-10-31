@@ -57,6 +57,8 @@ public class JSUtil {
   public static AstNode genStatement(AstNode node) {
     switch (node.getType()) {
       case Token.BLOCK:
+      case Token.EXPR_VOID:
+      case Token.EXPR_RESULT:
         return node;
       default:
         return new ExpressionStatement(node);

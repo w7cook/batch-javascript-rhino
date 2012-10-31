@@ -100,7 +100,7 @@ public class BatchCompiler implements NodeVisitor {
           AstNode local = stage
             .action()
             .runExtra(new JSPartitionFactory())
-            .generateNode("r$", "s$");
+            .Generate("r$", "s$");
           if (preNode == null && script == null) {
             preNode = local;
           } else {

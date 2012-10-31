@@ -7,66 +7,60 @@ import batch.partition.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
+public class JSPartitionFactory 
+    extends PartitionFactoryHelper<JSGenerator> {
 
   public final static String INPUT_NAME = "INPUT";
   public final static String OUTPUT_NAME = "OUTPUT";
 
   @Override
   public JSGenerator Var(final String _name) {
-    return new JSGenerator() {
-      public AstNode generateNode(String in, String out) {
-        return JSUtil.genName(_name);
-      }
-    };
+    return JSGenerator.Return(JSUtil.genName(_name));
   }
 
   @Override
   public JSGenerator Data(final Object _value) {
-    return new JSGenerator() {
-      public AstNode generateNode(String in, String out) {
-        if (_value instanceof String) {
-          return JSUtil.genStringLiteral((String)_value, '"');
-        } else if (_value instanceof Float) {
-          return new NumberLiteral(((Float)_value).doubleValue());
-        } else {
-          return noimpl();
-        }
-      }
-    };
+    AstNode node;
+    if (_value instanceof String) {
+      node = JSUtil.genStringLiteral((String)_value, '"');
+    } else if (_value instanceof Float) {
+      node = new NumberLiteral(((Float)_value).doubleValue());
+    } else {
+      node = noimpl();
+    }
+    return JSGenerator.Return(node);
   }
 
   @Override
   public JSGenerator Fun(final String _var, final JSGenerator _body) {
     return new JSGenerator() {
-      public AstNode generateNode(final String _in, final String _out) {
+      public AstNode Generate(final String _in, final String _out) {
         return new FunctionNode() {{
           addParam(JSUtil.genName(_var));
-          setBody(_body.generateNode(_in, _out));
+          setBody(_body.Generate(_in, _out));
         }};
       }
     };
   }
 
   @Override
-  public JSGenerator Prim(final Op _op, final List<JSGenerator> _args) {
-    return new JSGenerator() {
-      public AstNode generateNode(final String _in, final String _out) {
+  public JSGenerator Prim(final Op _op, List<JSGenerator> argGens) {
+    return Monad.Sequence(argGens).Bind(new JSGenFunction<List<AstNode>>() {
+      public AstNode Generate(
+          final String _in,
+          final String _out,
+          final List<AstNode> _args) {
         int type;
-        final List<AstNode> argNodes = new ArrayList<AstNode>() {{
-          for (JSGenerator gen : _args) {
-            add(gen.generateNode(_in, _out));
-          }
-        }};
         if (_op == Op.SEQ) {
-          switch (argNodes.size()) {
+          switch (_args.size()) {
             case 0:
               return new EmptyNode();
             case 1:
-              return argNodes.get(0);
+              return _args.get(0);
             default:
               return new Block() {{
-                for (AstNode node : argNodes) {
+                for (AstNode node : _args) {
+                  // TODO: remove empty nodes that were asyncronized
                   addStatement(JSUtil.genStatement(node));
                 }
               }};
@@ -95,83 +89,100 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
                 return noimpl();
             }
             return
-              new InfixExpression(type, argNodes.get(0), argNodes.get(1), 0);
+              new InfixExpression(
+                type,
+                _args.get(0),
+                _args.get(1),
+                0
+              );
           default:
             return noimpl();
         }
       }
-    };
+    });
   }
 
   @Override
-  public JSGenerator Prop(final JSGenerator _base, final String _field) {
-    return new JSGenerator() {
-      public AstNode generateNode(String in, String out) {
+  public JSGenerator Prop(JSGenerator baseGen, final String _field) {
+    return baseGen.Bind(new JSGenFunction<AstNode>() {
+      public AstNode Generate(String in, String out, AstNode base) {
         return new PropertyGet(
-          _base.generateNode(in, out),
+          base,
           JSUtil.genName(_field)
         );
       }
-    };
+    });
   }
 
   @Override
-  public JSGenerator Assign(
-      final JSGenerator _target,
-      final JSGenerator _source) {
-    return new JSGenerator() {
-      public AstNode generateNode(String in, String out) {
-        return new Assignment(
-          Token.ASSIGN,
-          _target.generateNode(in, out),
-          _source.generateNode(in, out),
-          0
-        );
+  public JSGenerator Assign(JSGenerator targetGen, JSGenerator sourceGen) {
+    return Monad.Bind2(targetGen, sourceGen,
+      new JSGenFunction2<AstNode, AstNode>() {
+        public AstNode Generate(
+            String in, 
+            String out,
+            AstNode target,
+            AstNode source) {
+          return new Assignment(Token.ASSIGN, target, source, 0);
+        }
       }
-    };
+    );
   }
 
   @Override
   public JSGenerator Let(
       final String _var,
-      final JSGenerator _expression,
-      final JSGenerator _body) {
-    return new JSGenerator() {
-      public AstNode generateNode(final String _in, final String _out) {
-        return JSUtil.genLet(
-          _var,
-          _expression.generateNode(_in, _out),
-          _body.generateNode(_in, _out)
-        );
+      JSGenerator expressionGen,
+      JSGenerator bodyGen) {
+    return Monad.Bind2(expressionGen, bodyGen,
+      new JSGenFunction2<AstNode,AstNode>() {
+        public AstNode Generate(
+            String in,
+            String out,
+            AstNode expression,
+            AstNode body) {
+          return JSUtil.genLet(_var, expression, body);
+        }
       }
-    };
+    );
   }
 
   @Override
   public JSGenerator If(
-      final JSGenerator _condition,
-      final JSGenerator _thenExp,
-      final JSGenerator _elseExp) {
-    return new JSGenerator() {
-      public AstNode generateNode(final String _in, final String _out) {
-        return new IfStatement() {{
-          setCondition(_condition.generateNode(_in, _out));
-          setThenPart(JSUtil.genStatement(_thenExp.generateNode(_in, _out)));
-          setElsePart(JSUtil.genStatement(_elseExp.generateNode(_in, _out)));
-        }};
+      JSGenerator conditionGen,
+      JSGenerator thenExpGen,
+      JSGenerator elseExpGen) {
+    return Monad.Bind3(conditionGen, thenExpGen, elseExpGen,
+      new JSGenFunction3<AstNode, AstNode, AstNode>() {
+        public AstNode Generate(
+            String in,
+            String out,
+            final AstNode _condition,
+            final AstNode _thenExp,
+            final AstNode _elseExp) {
+          return new IfStatement() {{
+            setCondition(_condition);
+            setThenPart(JSUtil.genStatement(_thenExp));
+            setElsePart(JSUtil.genStatement(_elseExp));
+          }};
+        }
       }
-    };
+    );
   }
 
   @Override
   public JSGenerator Loop(
       final String _var,
-      final JSGenerator _collection,
+      JSGenerator collectionGen,
       final JSGenerator _body) {
-    return new JSGenerator() {
-      public AstNode generateNode(final String _in, final String _out) {
+    // TODO: Async
+    return collectionGen.Bind(new JSGenFunction<AstNode>() {
+      public AstNode Generate(
+          final String _in,
+          final String _out,
+          AstNode collection) {
         final String index = _var+"_i";
-        if (!(_collection.generateNode(_in, _out) instanceof EmptyNode)) {
+        if (!(collection instanceof EmptyNode)) {
           return noimpl();
         }
         return new ForLoop() {{
@@ -202,40 +213,38 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
               ),
               JSUtil.genName(index)
             ),
-            _body.generateNode(
+            _body.Generate(
               _in  != null ? _var : null,
               _out != null ? _var : null
             )
           ));
         }};
       }
-    };
+    });
   }
 
   @Override
   public JSGenerator Call(
-      final JSGenerator _target,
+      JSGenerator targetGen,
       final String _method,
-      final List<JSGenerator> _args) {
-    return new JSGenerator() {
-      public AstNode generateNode(final String _in, final String _out) {
-        return JSUtil.genCall(
-          _target.generateNode(_in, _out),
-          _method,
-          new ArrayList<AstNode>() {{
-            for (JSGenerator _arg : _args) {
-              add(_arg.generateNode(_in, _out));
-            }
-          }}
-        );
+      List<JSGenerator> argGens) {
+    return Monad.Bind2(targetGen, Monad.Sequence(argGens),
+      new JSGenFunction2<AstNode, List<AstNode>>() {
+        public AstNode Generate(
+            String in,
+            String out,
+            AstNode target,
+            List<AstNode> args) {
+          return JSUtil.genCall(target, _method, args);
+        }
       }
-    };
+    );
   }
 
   @Override
   public JSGenerator In(final String _location) {
     return new JSGenerator() {
-      public AstNode generateNode(String in, String out) {
+      public AstNode Generate(String in, String out) {
         return new PropertyGet(
           JSUtil.genName(in),
           JSUtil.genName(_location)
@@ -247,29 +256,29 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
   @Override
   public JSGenerator Out(
       final String _location,
-      final JSGenerator _expression) {
-    return new JSGenerator() {
-      public AstNode generateNode(String in, String out) {
+      JSGenerator expressionGen) {
+    return expressionGen.Bind(new JSGenFunction<AstNode>() {
+      public AstNode Generate(String in, String out, AstNode expression) {
         return new Assignment(
           Token.ASSIGN,
           new PropertyGet(
             JSUtil.genName(out),
             JSUtil.genName(_location)
           ),
-          _expression.generateNode(in, out),
+          expression,
           0
         );
       }
-    };
+    });
   }
 
   @Override
-  public JSGenerator Other(Object external, List<JSGenerator> subs) {
-    return new JSGenerator() {
-      public AstNode generateNode(String in, String out) {
+  public JSGenerator Other(Object external, List<JSGenerator> subGens) {
+    return Monad.Sequence(subGens).Bind(new JSGenFunction<List<AstNode>>() {
+      public AstNode Generate(String in, String out, List<AstNode> subs) {
         return noimpl();
       }
-    };
+    });
   }
 
   @Override
@@ -278,7 +287,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
       String method,
       List<JSGenerator> args) {
     return new JSGenerator() {
-      public AstNode generateNode(String in, String out) {
+      public AstNode Generate(String in, String out) {
         return noimpl();
       }
     };
@@ -287,7 +296,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
   @Override
   public JSGenerator Mobile(String type, JSGenerator exp) {
     return new JSGenerator() {
-      public AstNode generateNode(String in, String out) {
+      public AstNode Generate(String in, String out) {
         return noimpl();
       }
     };
@@ -301,7 +310,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
   @Override
   public JSGenerator Root() {
     return new JSGenerator() {
-      public AstNode generateNode(String in, String out) {
+      public AstNode Generate(String in, String out) {
         return JSUtil.genName(ROOT_VAR_NAME);
       }
     };
@@ -309,12 +318,9 @@ public class JSPartitionFactory extends PartitionFactoryHelper<JSGenerator> {
 
   @Override
   public JSGenerator Skip() {
-    return new JSGenerator() {
-      public AstNode generateNode(String in, String out) {
-        return new EmptyStatement();
-      }
-    };
+    return JSGenerator.Return(new EmptyStatement());
   }
+  // TODO: Double check this
   private class EmptyNode extends Block {}
 
   private static <E> E noimpl() {
