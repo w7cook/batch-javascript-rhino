@@ -61,9 +61,11 @@ public class LoopGenerator extends AsyncJSGenerator {
         add(new FunctionNode() {{
           setBody(
             _loopGen.callback != null
-              ? _loopGen.callback.call(new EmptyExpression())
-                  .Generate(_in, _out)
-              : new EmptyStatement()
+              ? JSUtil.genBlock(
+                  _loopGen.callback.call(new EmptyExpression())
+                    .Generate(_in, _out)
+                )
+              : new Block()
           );
         }});
       }}

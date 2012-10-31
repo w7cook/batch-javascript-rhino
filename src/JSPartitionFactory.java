@@ -167,24 +167,13 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
   @Override
   public Generator If(
       Generator conditionGen,
-      Generator thenExpGen,
-      Generator elseExpGen) {
-    return Monad.Bind3(conditionGen, thenExpGen, elseExpGen,
-      new JSGenFunction3<AstNode, AstNode, AstNode>() {
-        public AstNode Generate(
-            String in,
-            String out,
-            final AstNode _condition,
-            final AstNode _thenExp,
-            final AstNode _elseExp) {
-          return new IfStatement() {{
-            setCondition(_condition);
-            setThenPart(JSUtil.genStatement(_thenExp));
-            setElsePart(JSUtil.genStatement(_elseExp));
-          }};
-        }
+      final Generator _thenExpGen,
+      final Generator _elseExpGen) {
+    return conditionGen.Bind(new Function<AstNode, Generator>() {
+      public Generator call(AstNode condition) {
+        return new IfGenerator(condition, _thenExpGen, _elseExpGen);
       }
-    );
+    });
   }
 
   @Override
