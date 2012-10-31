@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 final public class Monad {
@@ -7,26 +8,28 @@ final public class Monad {
       final List<? extends MonadI<M, A>> _monads) {
     return new MonadI<M, List<A>>() {
       public <B> MonadI<M, B> Bind(
-          final Function<List<A>,
-          ? extends MonadI<M, B>> _f) {
-        MonadI<M, A>[] monadList = _monads.<MonadI<M, A>>toArray(null);
-        final List<A> _resultAs = new ArrayList<A>(monadList.length);
-        final int _last = monadList.length-1;
-        MonadI<M, B> result = monadList[_last].Bind(
+          final Function<List<A>, ? extends MonadI<M, B>> _f) {
+        if (_monads.size() == 0) {
+          return _f.call(Collections.<A>emptyList());
+        }
+        ArrayList<MonadI<M, A>> monadList = new ArrayList<MonadI<M, A>>();
+        monadList.addAll(_monads);
+        final List<A> _resultAs = new ArrayList<A>(monadList.size());
+        int last = monadList.size()-1;
+        MonadI<M, B> result = monadList.get(last).Bind(
           new Function<A, MonadI<M, B>>() {
             public MonadI<M, B> call(A a) {
-              _resultAs.set(_last, a);
+              _resultAs.add(a);
               return _f.call(_resultAs);
             }
           }
         );
-        for (int i=_last-1; i>=0; i--) {
-          MonadI<M, A> monad = monadList[i];
-          final int _i = i;
+        for (int i=last-1; i>=0; i--) {
+          MonadI<M, A> monad = monadList.get(i);
           final MonadI<M, B> _currResult = result;
           result = monad.Bind(new Function<A, MonadI<M, B>>() {
             public MonadI<M, B> call(A a) {
-              _resultAs.set(_i, a);
+              _resultAs.add(a);
               return _currResult;
             }
           });
