@@ -11,6 +11,8 @@ window.onload = (function(old_onload) {
     if (old_onload) old_onload.apply(window, arguments);
 
     batch (var root in __BATCH_SERVICE__) {
+      page.putText("1");
+      page.putText("2");
       page.putText("Directory: " + root.getDir().getName());
       for each (var file in root.getDir().listFiles()) {
         var name = file.getName();
@@ -20,6 +22,7 @@ window.onload = (function(old_onload) {
           page.putText("- " + name);
         }
       }
+      page.putText("EOD");
     }
   };
 })(window.onload);

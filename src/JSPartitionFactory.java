@@ -42,6 +42,9 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
     };
   }
 
+  // TODO: Double check this
+  public class EmptyNode extends Block {}
+
   @Override
   public Generator Prim(final Op _op, List<Generator> argGens) {
     return Monad.SequenceBind(argGens, new JSGenFunction<List<AstNode>>() {
@@ -174,66 +177,10 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
       final String _var,
       Generator collectionGen,
       final Generator _bodyGen) {
-    final String _next = _var+"_next";
-    return collectionGen.Bind(new JSGenFunction<AstNode>() {
-      public AstNode Generate(
-          final String _in,
-          final String _out,
-          AstNode collection) {
-        if (!(collection instanceof EmptyNode)) {
-          return noimpl();
-        }
-        return JSUtil.genCall(
-          JSUtil.genName(_in),
-          "asyncForEach",
-          new ArrayList<AstNode>() {{
-            add(JSUtil.genStringLiteral(_var));
-            add(new FunctionNode() {{
-              addParam(JSUtil.genName(_var));
-              addParam(JSUtil.genName(_next));
-              setBody(
-                _bodyGen.Bind(new JSGenFunction<AstNode>() {
-                  public AstNode Generate(
-                      String in,
-                      String out,
-                      final AstNode _body) {
-                    return new Block() {{
-                      addStatement(JSUtil.genStatement(_body));
-                      // TODO: fold down one
-                      addStatement(JSUtil.genStatement(
-                        new FunctionCall() {{
-                          setTarget(JSUtil.genName(_next));
-                        }}
-                      ));
-                    }};
-                  }
-                }).Generate(
-                  _in  != null ? _var : null,
-                  _out != null ? _var : null
-                )
-              );
-            }});
-            /*
-            add(new FunctionNode() {{
-              if (this.callbackGen) {
-                setBody(this.callbackGen.Generate(_in, _out));
-              }
-            }});
-            */
-          }}
-        );
+    return collectionGen.Bind(new Function<AstNode, Generator>() {
+      public Generator call(AstNode collection) {
+        return new LoopGenerator(_var, collection, _bodyGen);
       }
-
-/*
-      @Override
-      public <R> Generator<R> Bind(
-          final Function<A, ? extends MonadI<Generator, R>> _f,
-          AstNode collection) {
-        if (!(collection instanceof EmptyNode)) {
-          return noimpl();
-        }
-      }
-*/
     });
   }
 
@@ -328,8 +275,6 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
   public Generator Skip() {
     return Generator.Return(new EmptyStatement());
   }
-  // TODO: Double check this
-  private class EmptyNode extends Block {}
 
   private static <E> E noimpl() {
     throw new RuntimeException("Not yet implemented");
