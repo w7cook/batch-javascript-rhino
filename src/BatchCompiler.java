@@ -129,7 +129,11 @@ public class BatchCompiler implements NodeVisitor {
           add(JSUtil.genName("s$"));
           add(new FunctionNode() {{
             addParam(JSUtil.genName("r$"));
-            setBody(_postNode != null ? _postNode : new EmptyStatement());
+            setBody(
+              _postNode != null
+              ? JSUtil.genBlock(_postNode)
+              : new Block()
+            );
           }});
         }}
       )));
