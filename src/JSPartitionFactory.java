@@ -5,6 +5,7 @@ import batch.Op;
 import batch.partition.*;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
@@ -42,32 +43,46 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
     };
   }
 
+  public Generator Seq(final Iterator<Generator> _gens) {
+    // TODO: fold non async
+    if (_gens.hasNext()) {
+      return _gens.next().Bind(new JSGenFunction<AstNode>() {
+        public AstNode Generate(
+            final String _in,
+            final String _out,
+            final AstNode _node) {
+          return new Block() {{
+            addStatement(JSUtil.genStatement(_node));
+            addStatement(Seq(_gens).Generate(_in, _out));
+          }};
+        }
+      });
+    } else {
+      return Generator.Return(new EmptyStatement());
+    }
+  }
+
   // TODO: Double check this
   public class EmptyNode extends Block {}
 
   @Override
   public Generator Prim(final Op _op, List<Generator> argGens) {
+    if (_op == Op.SEQ) {
+      switch (argGens.size()) {
+        case 0:
+          return Generator.Return(new EmptyNode());
+        case 1:
+          return argGens.get(0);
+        default:
+          return Seq(argGens.iterator());
+      }
+    }
     return Monad.SequenceBind(argGens, new JSGenFunction<List<AstNode>>() {
       public AstNode Generate(
           final String _in,
           final String _out,
           final List<AstNode> _args) {
         int type;
-        if (_op == Op.SEQ) {
-          switch (_args.size()) {
-            case 0:
-              return new EmptyNode();
-            case 1:
-              return _args.get(0);
-            default:
-              return new Block() {{
-                for (AstNode node : _args) {
-                  // TODO: remove empty nodes that were asyncronized
-                  addStatement(JSUtil.genStatement(node));
-                }
-              }};
-          }
-        }
         switch (_args.size()) {
           case 1:
             switch (_op) {
