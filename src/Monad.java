@@ -1,9 +1,13 @@
+import org.mozilla.javascript.ast.AstNode;
+
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 
 final public class Monad {
-
+  /*
   public static <M,A> MonadI<M, List<A>> Sequence(
       final List<? extends MonadI<M, A>> _monads) {
     return new MonadI<M, List<A>>() {
@@ -38,39 +42,81 @@ final public class Monad {
       }
     };
   }
+  */
 
-  public static <M, A,B,R> MonadI<M, R> Bind2(
-      MonadI<M, A> m_a,
-      final MonadI<M, B> _m_b,
-      final Function<Pair<A,B>, ? extends MonadI<M, R>> _f) {
-    return m_a.Bind(new Function<A, MonadI<M, R>>() {
-      public MonadI<M, R> call(final A _a) {
-        return _m_b.Bind(new Function<B, MonadI<M, R>>() {
-          public MonadI<M, R> call(B b) {
-            return _f.call(new Pair<A,B>(_a,b));
-          }
-        });
-      }
-    });
+  public static Generator SequenceBind(
+      List<Generator> monads,
+      Function<List<AstNode>, Generator> f) {
+    return SequenceBind(monads.iterator(), f, new Cons.Nil<AstNode>());
   }
 
-  public static <M, A,B,C,R> MonadI<M, R> Bind3(
-      MonadI<M, A> m_a,
-      final MonadI<M, B> _m_b,
-      final MonadI<M, C> _m_c,
-      final Function<Pair<A,Pair<B,C>>, ? extends MonadI<M, R>> _f) {
-    return m_a.Bind(new Function<A, MonadI<M, R>>() {
-      public MonadI<M, R> call(final A _a) {
-        return _m_b.Bind(new Function<B, MonadI<M, R>>() {
-          public MonadI<M, R> call(final B _b) {
-            return _m_c.Bind(new Function<C, MonadI<M, R>>() {
-              public MonadI<M, R> call(C c) {
-                return _f.call(new Pair<A,Pair<B,C>>(_a,new Pair<B,C>(_b,c)));
-              }
-            });
-          }
-        });
+  public static Generator SequenceBind(
+      final Iterator<Generator> _monads,
+      final Function<List<AstNode>, Generator> _f,
+      final Cons<AstNode> _reversedValues) {
+    if (_monads.hasNext()) {
+      return _monads.next().Bind(new Function<AstNode, Generator>() {
+        public Generator call(AstNode a) {
+          return Monad.SequenceBind(
+            _monads,
+            _f,
+            new Cons<AstNode>(a, _reversedValues)
+          );
+        }
+      });
+    } else {
+      return _f.call(new LinkedList<AstNode>() {{
+        for (AstNode a : _reversedValues) {
+          addFirst(a);
+        }
+      }});
+    }
+  }
+
+  public static Generator Bind2(
+      final Generator _a,
+      final Generator _b,
+      final Function<Pair<AstNode,AstNode>, Generator> _f) {
+    return SequenceBind(
+      new LinkedList<Generator>() {{
+        add(_a);
+        add(_b);
+      }},
+      new Function<List<AstNode>, Generator>() {
+        public Generator call(List<AstNode> list) {
+          Iterator<AstNode> it = list.iterator();
+          return _f.call(new Pair<AstNode,AstNode>(
+            it.next(),
+            it.next()
+          ));
+        }
       }
-    });
+    );
+  }
+
+  public static Generator Bind3(
+      final Generator _a,
+      final Generator _b,
+      final Generator _c,
+      final Function<Pair<AstNode,Pair<AstNode,AstNode>>, Generator> _f) {
+    return SequenceBind(
+      new LinkedList<Generator>() {{
+        add(_a);
+        add(_b);
+        add(_c);
+      }},
+      new Function<List<AstNode>, Generator>() {
+        public Generator call(List<AstNode> list) {
+          Iterator<AstNode> it = list.iterator();
+          return _f.call(new Pair<AstNode,Pair<AstNode,AstNode>>(
+            it.next(),
+            new Pair<AstNode,AstNode>(
+              it.next(),
+              it.next()
+            )
+          ));
+        }
+      }
+    );
   }
 }

@@ -7,19 +7,18 @@ import batch.partition.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class JSPartitionFactory 
-    extends PartitionFactoryHelper<Generator<AstNode>> {
+public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
 
   public final static String INPUT_NAME = "INPUT";
   public final static String OUTPUT_NAME = "OUTPUT";
 
   @Override
-  public Generator<AstNode> Var(final String _name) {
-    return Generator.<AstNode>Return(JSUtil.genName(_name));
+  public Generator Var(final String _name) {
+    return Generator.Return(JSUtil.genName(_name));
   }
 
   @Override
-  public Generator<AstNode> Data(final Object _value) {
+  public Generator Data(final Object _value) {
     AstNode node;
     if (_value instanceof String) {
       node = JSUtil.genStringLiteral((String)_value, '"');
@@ -28,14 +27,12 @@ public class JSPartitionFactory
     } else {
       node = noimpl();
     }
-    return Generator.<AstNode>Return(node);
+    return Generator.Return(node);
   }
 
   @Override
-  public Generator<AstNode> Fun(
-      final String _var,
-      final Generator<AstNode> _body) {
-    return new Generator<AstNode>() {
+  public Generator Fun(final String _var, final Generator _body) {
+    return new Generator() {
       public AstNode Generate(final String _in, final String _out) {
         return new FunctionNode() {{
           addParam(JSUtil.genName(_var));
@@ -46,11 +43,8 @@ public class JSPartitionFactory
   }
 
   @Override
-  public Generator<AstNode> Prim(
-      final Op _op,
-      List<Generator<AstNode>> argGens) {
-    return (Generator<AstNode>)
-        Monad.Sequence(argGens).Bind(new JSGenFunction<List<AstNode>>() {
+  public Generator Prim(final Op _op, List<Generator> argGens) {
+    return Monad.SequenceBind(argGens, new JSGenFunction<List<AstNode>>() {
       public AstNode Generate(
           final String _in,
           final String _out,
@@ -108,9 +102,7 @@ public class JSPartitionFactory
   }
 
   @Override
-  public Generator<AstNode> Prop(
-      Generator<AstNode> baseGen,
-      final String _field) {
+  public Generator Prop(Generator baseGen, final String _field) {
     return baseGen.Bind(new JSGenFunction<AstNode>() {
       public AstNode Generate(String in, String out, AstNode base) {
         return new PropertyGet(
@@ -122,11 +114,8 @@ public class JSPartitionFactory
   }
 
   @Override
-  public Generator<AstNode> Assign(
-      Generator<AstNode> targetGen,
-      Generator<AstNode> sourceGen) {
-    return (Generator<AstNode>)
-        Monad.Bind2(targetGen, sourceGen,
+  public Generator Assign(Generator targetGen, Generator sourceGen) {
+    return Monad.Bind2(targetGen, sourceGen,
       new JSGenFunction2<AstNode, AstNode>() {
         public AstNode Generate(
             String in, 
@@ -140,12 +129,11 @@ public class JSPartitionFactory
   }
 
   @Override
-  public Generator<AstNode> Let(
+  public Generator Let(
       final String _var,
-      Generator<AstNode> expressionGen,
-      Generator<AstNode> bodyGen) {
-    return (Generator<AstNode>)
-        Monad.Bind2(expressionGen, bodyGen,
+      Generator expressionGen,
+      Generator bodyGen) {
+    return Monad.Bind2(expressionGen, bodyGen,
       new JSGenFunction2<AstNode,AstNode>() {
         public AstNode Generate(
             String in,
@@ -159,12 +147,11 @@ public class JSPartitionFactory
   }
 
   @Override
-  public Generator<AstNode> If(
-      Generator<AstNode> conditionGen,
-      Generator<AstNode> thenExpGen,
-      Generator<AstNode> elseExpGen) {
-    return (Generator<AstNode>)
-        Monad.Bind3(conditionGen, thenExpGen, elseExpGen,
+  public Generator If(
+      Generator conditionGen,
+      Generator thenExpGen,
+      Generator elseExpGen) {
+    return Monad.Bind3(conditionGen, thenExpGen, elseExpGen,
       new JSGenFunction3<AstNode, AstNode, AstNode>() {
         public AstNode Generate(
             String in,
@@ -183,94 +170,99 @@ public class JSPartitionFactory
   }
 
   @Override
-  public Generator<AstNode> Loop(
+  public Generator Loop(
       final String _var,
-      Generator<AstNode> collectionGen,
-      final Generator<AstNode> _body) {
-    // TODO: Async
+      Generator collectionGen,
+      final Generator _bodyGen) {
+    final String _next = _var+"_next";
     return collectionGen.Bind(new JSGenFunction<AstNode>() {
       public AstNode Generate(
           final String _in,
           final String _out,
           AstNode collection) {
-        final String index = _var+"_i";
         if (!(collection instanceof EmptyNode)) {
           return noimpl();
         }
-        return new ForLoop() {{
-          setInitializer(
-            JSUtil.genDeclare(index, new NumberLiteral(0, "0"))
-          );
-          setCondition(new InfixExpression(
-            Token.LT,
-            JSUtil.genName(index),
-            new PropertyGet(
-              new PropertyGet(
-                JSUtil.genName(_in),
-                JSUtil.genName(_var)
-              ),
-              JSUtil.genName("length")
-            ),
-            0
-          ));
-          setIncrement(
-            new UnaryExpression(Token.INC, 0, JSUtil.genName(index))
-          );
-          setBody(JSUtil.genLet(
-            _var,
-            new ElementGet(
-              new PropertyGet(
-                JSUtil.genName(_in),
-                JSUtil.genName(_var)
-              ),
-              JSUtil.genName(index)
-            ),
-            _body.Generate(
-              _in  != null ? _var : null,
-              _out != null ? _var : null
-            )
-          ));
-        }};
+        return JSUtil.genCall(
+          JSUtil.genName(_in),
+          "asyncForEach",
+          new ArrayList<AstNode>() {{
+            add(JSUtil.genStringLiteral(_var));
+            add(new FunctionNode() {{
+              addParam(JSUtil.genName(_var));
+              addParam(JSUtil.genName(_next));
+              setBody(
+                _bodyGen.Bind(new JSGenFunction<AstNode>() {
+                  public AstNode Generate(
+                      String in,
+                      String out,
+                      final AstNode _body) {
+                    return new Block() {{
+                      addStatement(JSUtil.genStatement(_body));
+                      // TODO: fold down one
+                      addStatement(JSUtil.genStatement(
+                        new FunctionCall() {{
+                          setTarget(JSUtil.genName(_next));
+                        }}
+                      ));
+                    }};
+                  }
+                }).Generate(
+                  _in  != null ? _var : null,
+                  _out != null ? _var : null
+                )
+              );
+            }});
+            /*
+            add(new FunctionNode() {{
+              if (this.callbackGen) {
+                setBody(this.callbackGen.Generate(_in, _out));
+              }
+            }});
+            */
+          }}
+        );
+      }
+
+/*
+      @Override
+      public <R> Generator<R> Bind(
+          final Function<A, ? extends MonadI<Generator, R>> _f,
+          AstNode collection) {
+        if (!(collection instanceof EmptyNode)) {
+          return noimpl();
+        }
+      }
+*/
+    });
+  }
+
+  @Override
+  public Generator Call(
+      Generator targetGen,
+      final String _method,
+      final List<Generator> _argGens) {
+    return targetGen.Bind(new Function<AstNode, Generator>() {
+      public Generator call(final AstNode _target) {
+        return Monad.SequenceBind(_argGens, new JSGenFunction<List<AstNode>>() {
+          public AstNode Generate(
+              String in,
+              String out,
+              List<AstNode> args) {
+            return JSUtil.genCall(_target, _method, args);
+          }
+        });
       }
     });
   }
 
   @Override
-  public Generator<AstNode> Call(
-      Generator<AstNode> targetGen,
-      final String _method,
-      List<Generator<AstNode>> argGens) {
-    return (Generator<AstNode>)
-        Monad.Bind2(targetGen, Monad.Sequence(argGens),
-      new JSGenFunction2<AstNode, List<AstNode>>() {
-        public AstNode Generate(
-            String in,
-            String out,
-            AstNode target,
-            List<AstNode> args) {
-          return JSUtil.genCall(target, _method, args);
-        }
-      }
-    );
+  public Generator In(String location) {
+    return new InGenerator(location);
   }
 
   @Override
-  public Generator<AstNode> In(final String _location) {
-    // TODO: Async
-    return new Generator<AstNode>() {
-      public AstNode Generate(String in, String out) {
-        return new PropertyGet(
-          JSUtil.genName(in),
-          JSUtil.genName(_location)
-        );
-      }
-    };
-  }
-
-  @Override
-  public Generator<AstNode> Out(
-      final String _location,
-      Generator<AstNode> expressionGen) {
+  public Generator Out(final String _location, Generator expressionGen) {
     return expressionGen.Bind(new JSGenFunction<AstNode>() {
       public AstNode Generate(String in, String out, AstNode expression) {
         return new Assignment(
@@ -287,11 +279,10 @@ public class JSPartitionFactory
   }
 
   @Override
-  public Generator<AstNode> Other(
+  public Generator Other(
       Object external,
-      List<Generator<AstNode>> subGens) {
-    return (Generator<AstNode>)
-        Monad.Sequence(subGens).Bind(new JSGenFunction<List<AstNode>>() {
+      List<Generator> subGens) {
+    return Monad.SequenceBind(subGens, new JSGenFunction<List<AstNode>>() {
       public AstNode Generate(String in, String out, List<AstNode> subs) {
         return noimpl();
       }
@@ -299,11 +290,11 @@ public class JSPartitionFactory
   }
 
   @Override
-  public Generator<AstNode> DynamicCall(
-      Generator<AstNode> target,
+  public Generator DynamicCall(
+      Generator target,
       String method,
-      List<Generator<AstNode>> args) {
-    return new Generator<AstNode>() {
+      List<Generator> args) {
+    return new Generator() {
       public AstNode Generate(String in, String out) {
         return noimpl();
       }
@@ -311,8 +302,8 @@ public class JSPartitionFactory
   }
 
   @Override
-  public Generator<AstNode> Mobile(String type, Generator<AstNode> exp) {
-    return new Generator<AstNode>() {
+  public Generator Mobile(String type, Generator exp) {
+    return new Generator() {
       public AstNode Generate(String in, String out) {
         return noimpl();
       }
@@ -320,13 +311,13 @@ public class JSPartitionFactory
   }
 
   @Override
-  public Generator<AstNode> setExtra(Generator<AstNode> exp, Object extra) {
+  public Generator setExtra(Generator exp, Object extra) {
     return exp.setExtra(extra);
   }
 
   @Override
-  public Generator<AstNode> Root() {
-    return new Generator<AstNode>() {
+  public Generator Root() {
+    return new Generator() {
       public AstNode Generate(String in, String out) {
         return JSUtil.genName(ROOT_VAR_NAME);
       }
@@ -334,8 +325,8 @@ public class JSPartitionFactory
   }
 
   @Override
-  public Generator<AstNode> Skip() {
-    return Generator.<AstNode>Return(new EmptyStatement());
+  public Generator Skip() {
+    return Generator.Return(new EmptyStatement());
   }
   // TODO: Double check this
   private class EmptyNode extends Block {}

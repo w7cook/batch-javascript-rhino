@@ -1,10 +1,10 @@
 import org.mozilla.javascript.ast.AstNode;
 
 abstract public class JSGenFunction3<A,B,C>
-    extends Function<Pair<A,Pair<B,C>>, Generator<AstNode>> {
-  public Generator<AstNode> call(final Pair<A,Pair<B,C>> _params) {
+    extends Function<Pair<A,Pair<B,C>>, Generator> {
+  public Generator call(final Pair<A,Pair<B,C>> _params) {
     final JSGenFunction3<A,B,C> _jsGenFunc = this;
-    return new Generator<AstNode>() {
+    return new Generator() {
       public AstNode Generate(String in, String out) {
         return _jsGenFunc.Generate(
           in,
