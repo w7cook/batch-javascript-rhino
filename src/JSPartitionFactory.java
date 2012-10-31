@@ -51,10 +51,10 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
             final String _in,
             final String _out,
             final AstNode _node) {
-          return new Block() {{
-            addStatement(JSUtil.genStatement(_node));
-            addStatement(Seq(_gens).Generate(_in, _out));
-          }};
+          return JSUtil.prependToBlock(
+            _node,
+            Seq(_gens).Generate(_in, _out)
+          );
         }
       });
     } else {

@@ -38,24 +38,23 @@ public class LoopGenerator extends AsyncJSGenerator {
           addParam(JSUtil.genName(_loopGen.var));
           addParam(JSUtil.genName(_next));
           setBody(
-            _loopGen.bodyGen.Bind(new JSGenFunction<AstNode>() {
-              public AstNode Generate(
-                  String in,
-                  String out,
-                  final AstNode _body) {
-                return new Block() {{
-                  addStatement(JSUtil.genStatement(_body));
-                  // TODO: fold down one
-                  addStatement(JSUtil.genStatement(
+            JSUtil.genBlock(
+              _loopGen.bodyGen.Bind(new JSGenFunction<AstNode>() {
+                public AstNode Generate(
+                    String in,
+                    String out,
+                    final AstNode _body) {
+                  return JSUtil.appendToBlock(
+                    _body,
                     new FunctionCall() {{
                       setTarget(JSUtil.genName(_next));
                     }}
-                  ));
-                }};
-              }
-            }).Generate(
-              _in  != null ? _loopGen.var : null,
-              _out != null ? _loopGen.var : null
+                  );
+                }
+              }).Generate(
+                _in  != null ? _loopGen.var : null,
+                _out != null ? _loopGen.var : null
+              )
             )
           );
         }});

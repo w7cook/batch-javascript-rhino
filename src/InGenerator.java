@@ -1,6 +1,4 @@
-import org.mozilla.javascript.ast.AstNode;
-import org.mozilla.javascript.ast.EmptyStatement;
-import org.mozilla.javascript.ast.FunctionNode;
+import org.mozilla.javascript.ast.*;
 
 import java.util.ArrayList;
 
@@ -37,9 +35,11 @@ public class InGenerator extends AsyncJSGenerator {
           addParam(JSUtil.genName(param));
           setBody(
             _inGen.callback != null
-              ? _inGen.callback.call(JSUtil.genName(param))
-                  .Generate(_in, _out)
-              : new EmptyStatement()
+              ? JSUtil.genBlock(
+                  _inGen.callback.call(JSUtil.genName(param))
+                    .Generate(_in, _out)
+                )
+              : new Block()
           );
         }});
       }}
