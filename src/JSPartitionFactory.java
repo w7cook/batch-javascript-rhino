@@ -256,6 +256,7 @@ public class JSPartitionFactory
 
   @Override
   public Generator<AstNode> In(final String _location) {
+    // TODO: Async
     return new Generator<AstNode>() {
       public AstNode Generate(String in, String out) {
         return new PropertyGet(
