@@ -100,7 +100,7 @@ public class BatchCompiler implements NodeVisitor {
           AstNode local = stage
             .action()
             .runExtra(new JSPartitionFactory())
-            .generateNode("r$", "s$");
+            .Generate("r$", "s$");
           if (preNode == null && script == null) {
             preNode = local;
           } else {
@@ -129,7 +129,11 @@ public class BatchCompiler implements NodeVisitor {
           add(JSUtil.genName("s$"));
           add(new FunctionNode() {{
             addParam(JSUtil.genName("r$"));
-            setBody(_postNode != null ? _postNode : new EmptyStatement());
+            setBody(
+              _postNode != null
+              ? JSUtil.genBlock(_postNode)
+              : new Block()
+            );
           }});
         }}
       )));
