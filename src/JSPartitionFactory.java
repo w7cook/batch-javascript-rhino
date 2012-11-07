@@ -44,7 +44,6 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
   }
 
   public Generator Seq(final Iterator<Generator> _gens) {
-    // TODO: fold non async
     if (_gens.hasNext()) {
       return _gens.next().Bind(new JSGenFunction<AstNode>() {
         public AstNode Generate(
