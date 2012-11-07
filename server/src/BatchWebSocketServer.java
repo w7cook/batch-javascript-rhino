@@ -1,5 +1,5 @@
 import java.io.IOException;
-import java.io.StringWriter;
+import java.io.Writer;
 import java.net.InetSocketAddress;
 
 import batch.Service;
@@ -49,15 +49,39 @@ public class BatchWebSocketServer<E, T> extends WebSocketServer {
   }
 
   @Override
-  public synchronized void onMessage(final WebSocket _socket, String message) {
+  public void onMessage(final WebSocket _socket, String message) {
     try {
-      Expression exp = BatchScriptParser.parse(message);
+      String[] parts = message.split("\n", 2);
+      if (parts.length < 2) {
+        System.out.println("No id before script: "+message);
+        return;
+      }
+      final String _id = parts[0];
+      String script = parts[1];
+      Expression exp = BatchScriptParser.parse(script);
       Forest result = service.execute(exp.run(factory), null);
-      StringWriter out = new StringWriter();
+      Writer out = new Writer() {
+        public void write(char[] cbuf, int off, int len) {
+          String partial_result = new String(cbuf, off, len);
+
+          String[] by_comma = partial_result.split(",");
+          for (int i=0; i<by_comma.length-1; i++) {
+            String part = by_comma[i];
+            System.out.println("SENDING");
+            System.out.println(part+",");
+            _socket.send(_id + "\n" + part+",");
+try{Thread.sleep(100);}catch(Exception e){}
+          }
+          if (by_comma.length >= 1) {
+            System.out.println("SENDING");
+            System.out.println(by_comma[by_comma.length-1]);
+            _socket.send(_id + "\n" + by_comma[by_comma.length-1]);
+          }
+        }
+        public void close() {}
+        public void flush() {}
+      };
       transport.write(result, out);
-      System.out.println("SENDING");
-      System.out.println(out.toString());
-      _socket.send(out.toString());
     } catch (RecognitionException e) {
       e.printStackTrace();
     } catch (IOException e) {

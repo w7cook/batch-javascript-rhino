@@ -1,1 +1,1 @@
-javac -cp build\js-batch.jar;lib\batches.jar -d classes src\*.java
+javac -cp build\js-batch.jar;lib\batches.jar -Xlint:unchecked -d classes src\*.java

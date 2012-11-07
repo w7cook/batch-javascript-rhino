@@ -57,9 +57,52 @@ public class JSUtil {
   public static AstNode genStatement(AstNode node) {
     switch (node.getType()) {
       case Token.BLOCK:
+      case Token.EXPR_VOID:
+      case Token.EXPR_RESULT:
+      case Token.IF:
         return node;
       default:
         return new ExpressionStatement(node);
+    }
+  }
+
+  public static Block genBlock(final AstNode _node) {
+    switch (_node.getType()) {
+      case Token.BLOCK:
+        return (Block)_node;
+      default:
+        return new Block() {{
+          addStatement(JSUtil.genStatement(_node));
+        }};
+    }
+  }
+
+  public static Block appendToBlock(AstNode maybeBlock, AstNode node) {
+    Block block = JSUtil.genBlock(maybeBlock);
+    if (!JSUtil.isEmpty(node)) {
+      block.addStatement(JSUtil.genStatement(node));
+    }
+    return block;
+  }
+
+  public static Block prependToBlock(AstNode node, AstNode maybeBlock) {
+    Block block = JSUtil.genBlock(maybeBlock);
+    if (!JSUtil.isEmpty(node)) {
+      block.addChildToFront(JSUtil.genStatement(node));
+    }
+    return block;
+  }
+
+  public static boolean isEmpty(AstNode node) {
+    switch (node.getType()) {
+      case Token.EMPTY:
+        return true;
+      case Token.EXPR_VOID:
+      case Token.EXPR_RESULT:
+        System.out.println("HIT");
+        return JSUtil.isEmpty(((ExpressionStatement)node).getExpression());
+      default:
+        return false;
     }
   }
 }

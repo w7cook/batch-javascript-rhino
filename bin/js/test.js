@@ -20,6 +20,7 @@ window.onload = (function(old_onload) {
           page.putText("- " + name);
         }
       }
+      page.putText("EOD");
     }
   };
 })(window.onload);
