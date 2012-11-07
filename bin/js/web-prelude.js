@@ -1,7 +1,10 @@
-function JSONStream(key_path) {
-  this.onparse = function(key_path, value) {};
-  this.key_path = key_path || [];
+function JSONStream() {
+  this.onparse = function(value) {};
+  this.onchild = function(key, child) {};
+  this.curr_child = undefined;
   this.data = undefined;
+  this.children = [];
+  this.initData = function(data) {};
 }
 JSONStream.prototype = {
   append: function(next_part) {
@@ -51,6 +54,7 @@ JSONStream.prototype = {
         && (match = next_part.match(/^\s*{(.*)$/))) {
       this.started = 'object';
       this.data = {};
+      this.initData(this.data);
       return match[1];
     }
     return next_part;
@@ -70,15 +74,17 @@ JSONStream.prototype = {
   parseValue: function(next_part) {
     var match;
     if (this.key) {
-      var child_key_path = this.key_path.concat([this.key]);
       if (!this.curr_child) {
-        this.curr_child = new JSONStream(child_key_path);
-        this.curr_child.onparse = this.onparse;
+        this.curr_child = new JSONStream();
+        this.curr_child.initData = (function(key, data) {
+          this.data[key] = data;
+        }).bind(this, this.key);
+        this.children[this.key] = this.curr_child;
+        this.onchild(this.key, this.curr_child);
       }
       next_part = this.curr_child.append(next_part);
       if (this.curr_child.finished
           && (match = next_part.match(/^\s*(,|})(.*)$/))) {
-        this.data[this.key] = this.curr_child.data;
         this.curr_child = undefined;
         this.key = undefined;
         if (match[1] === '}') {
@@ -109,6 +115,7 @@ JSONStream.prototype = {
       this.started = 'array';
       this.index = 0;
       this.data = [];
+      this.initData(this.data);
       return match[1];
     }
     return next_part;
@@ -117,15 +124,17 @@ JSONStream.prototype = {
   parseArrayElement: function(next_part) {
     var match;
     if (this.started === 'array') {
-      var child_key_path = this.key_path.concat([this.index]);
       if (!this.curr_child) {
-        this.curr_child = new JSONStream(child_key_path);
-        this.curr_child.onparse = this.onparse;
+        this.curr_child = new JSONStream();
+        this.curr_child.initData = (function(index, data) {
+          this.data[index] = data;
+        }).bind(this, this.index);
+        this.children[this.index] = this.curr_child;
+        this.onchild(this.index, this.curr_child);
       }
       next_part = this.curr_child.append(next_part);
       if (this.curr_child.finished
           && (match = next_part.match(/^\s*(,|])(.*)$/))) {
-        this.data[this.index] = this.curr_child.data;
         this.curr_child = undefined;
         this.index++;
         if (match[1] === ']') {
@@ -152,6 +161,7 @@ JSONStream.prototype = {
     var match = next_part.match(/^\s*true(.*)$/);
     if (match) {
       this.data = true;
+      this.initData(this.data);
       this.finished = true;
       return match[1];
     }
@@ -162,6 +172,7 @@ JSONStream.prototype = {
     var match = next_part.match(/^\s*false(.*)$/);
     if (match) {
       this.data = false;
+      this.initData(this.data);
       this.finished = true;
       return match[1];
     }
@@ -172,6 +183,7 @@ JSONStream.prototype = {
     var match = next_part.match(/^\s*null(.*)$/);
     if (match) {
       this.data = null;
+      this.initData(this.data);
       this.finished = true;
       return match[1];
     }
@@ -182,6 +194,7 @@ JSONStream.prototype = {
     var match = next_part.match(/^\s*("(\\"|[^"])*[^\\]")(.*)$/);
     if (match) {
       this.data = JSON.parse(match[1]);
+      this.initData(this.data);
       this.finished = true;
       return match[3];
     }
@@ -193,6 +206,7 @@ JSONStream.prototype = {
     if (match) {
       var f = parseFloat(match[1]);
       this.data = f;
+      this.initData(this.data);
       this.finished = true;
       return match[2];
     }
@@ -207,91 +221,97 @@ window.onload = (function(old_onload) {
   return function() {
     if (old_onload) old_onload.apply(window, arguments);
 
+    function AsyncObject(jsonStream) {
+      this.jsonStream = jsonStream;
+      this.jsonStream.onchild = (function(key, child) {
+        child.onparse = this.tryCallback.bind(this);
+        child.onchild = this.tryCallback.bind(this);
+      }).bind(this);
+      this.returnObject = {
+        asyncForEach: (function(loop_var, step_cb, post_cb) {
+          if (this.callback) {
+            throw new Error('Multiple async-waits not implemented');
+          }
+          this.waiting_for = loop_var;
+          this.startLoop = (function(loop) {
+            this.startLoop = undefined;
+            var i = 0;
+            this.stepLoop = (function() {
+              if (i < loop.children.length) {
+                step_cb(
+                  new AsyncObject(loop.children[i++]).returnObject,
+                  this.stepLoop
+                );
+              } else if (loop.finished) {
+                this.stepLoop = undefined;
+                post_cb();
+              }
+            }).bind(this);
+            return this.stepLoop();
+          }).bind(this);
+          this.tryCallback();
+        }).bind(this),
+
+        get: (function(var_name, cb) {
+          if (this.callback) {
+            throw new Error('Multiple async-waits not implemented');
+          }
+          this.waiting_for = var_name;
+          this.callback = (function(value) {
+            this.callback = undefined;
+            cb(value);
+          }).bind(this);
+          this.tryCallback();
+        }).bind(this)
+      };
+    }
+    AsyncObject.prototype = {
+      tryCallback: function() {
+        if (this.callback
+            && typeof this.jsonStream.data === 'object'
+            && (this.waiting_for in this.jsonStream.data)) {
+          this.callback(this.jsonStream.data[this.waiting_for]);
+        }
+        if (this.waiting_for in this.jsonStream.children) {
+          if (this.startLoop) {
+            this.startLoop(this.jsonStream.children[this.waiting_for]);
+          }
+          if (this.stepLoop) {
+            this.stepLoop();
+          }
+        }
+      },
+      appendMsg: function(next_part) {
+        // check version
+        if (this.version === undefined) {
+          if (this.incomplete_version) {
+            next_part = this.incomplete_version + next_part;
+            this.incomplete_version = '';
+          }
+          var version_and_rest = next_part.split('\n', 2);
+          if (version_and_rest.length > 0) {
+            this.version = version_and_rest[0];
+            if (this.version !== 'Batch 1.0 JSON 1.0') {
+              throw new Error(
+                'Incompatible batch message format: ' + this.version
+              );
+            }
+            next_part = version_and_rest[1];
+          } else {
+            this.incomplete_version = next_part;
+            return;
+          }
+        }
+        next_part = (next_part || '').trim();
+        if (this.version && next_part) {
+          this.jsonStream.append(next_part);
+        }
+      }
+    };
+    
     var __next_id = 0;
     function getNextID() {
       return __next_id++;
-    }
-
-    function asyncObject(data) {
-      var callback, waiting_for;
-      function tryCallback() {
-        if (callback && (waiting_for in data)) {
-          var cb = callback;
-          callback = undefined;
-          cb(data[waiting_for]);
-        }
-      }
-      return {
-        returnObject: {
-          asyncForEach: function(loop_var, step_cb, post_cb) {
-            if (callback) {
-              throw new Error('Multiple async-waits not implemented');
-            }
-            waiting_for = loop_var;
-            callback = function(val) {
-              val = val.concat([]).reverse();
-              function next() {
-                if (val.length > 0) {
-                  step_cb(asyncObject(val.pop()).returnObject, next);
-                } else {
-                  post_cb();
-                }
-              }
-              return next();
-            }
-            tryCallback();
-          },
-          get: function(var_name, cb) {
-            if (callback) {
-              throw new Error('Multiple async-waits not implemented');
-            }
-            waiting_for = var_name;
-            callback = cb;
-            tryCallback();
-          }
-        },
-        set: function(var_name, value) {
-          data[var_name] = value;
-          tryCallback();
-        },
-        appendMsg: function(next_part) {
-          // check version
-          if (this.version === undefined) {
-            if (this.incomplete_version) {
-              next_part = this.incomplete_version + next_part;
-              this.incomplete_version = '';
-            }
-            var version_and_rest = next_part.split('\n', 2);
-            if (version_and_rest.length > 0) {
-              this.version = version_and_rest[0];
-              if (this.version !== 'Batch 1.0 JSON 1.0') {
-                throw new Error(
-                  'Incompatible batch message format: ' + this.version
-                );
-              }
-              next_part = version_and_rest[1];
-            } else {
-              this.incomplete_version = next_part;
-              return;
-            }
-          }
-          next_part = (next_part || '').trim();
-          if (this.version && next_part) {
-            if (this.jsonStream === undefined) {
-              this.jsonStream = new JSONStream();
-              this.jsonStream.onparse = (function(key_path, data) {
-                if (key_path.length === 1) {
-                  this.set(key_path[0], data);
-                }
-                if (key_path.length === 0) {
-                  // TODO clean up
-                }
-              }).bind(this);
-            }
-            this.jsonStream.append(next_part);
-          }
-        }
-      };
     }
 
     var websocket = new WebSocket('ws://localhost:9999');
@@ -301,12 +321,12 @@ window.onload = (function(old_onload) {
       var parts = event.data.split('\n', 2);
       var id = parts[0];
       var result = parts[1];
-      asyncObjects[id].appendMsg(result);
       if (callbacks[id]) {
         var cb = callbacks[id];
         callbacks[id] = undefined;
         cb(asyncObjects[id].returnObject);
       }
+      asyncObjects[id].appendMsg(result);
     }
     websocket.onerror = function(event) {
       throw new Error(event.data);
@@ -316,7 +336,7 @@ window.onload = (function(old_onload) {
       execute: function(script, data, callback) {
         var id = getNextID();
         callbacks[id] = callback;
-        asyncObjects[id] = asyncObject({});
+        asyncObjects[id] = new AsyncObject(new JSONStream());
         function try_send() {
           if (websocket.readyState != WebSocket.OPEN) {
             setTimeout(try_send, 10);
