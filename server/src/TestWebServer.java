@@ -13,6 +13,7 @@ public class TestWebServer {
   public static void main(String[] argv) {
     int port = Integer.parseInt(argv[0]);
 
+    System.out.println("Starting server on port "+port);
     try {
       runServer(port, new JSONTransport());
     } catch (IOException e) {
