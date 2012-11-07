@@ -63,9 +63,20 @@ public class BatchWebSocketServer<E, T> extends WebSocketServer {
       Writer out = new Writer() {
         public void write(char[] cbuf, int off, int len) {
           String partial_result = new String(cbuf, off, len);
-          System.out.println("SENDING");
-          System.out.println(partial_result);
-          _socket.send(_id + "\n" + partial_result);
+
+          String[] by_comma = partial_result.split(",");
+          for (int i=0; i<by_comma.length-1; i++) {
+            String part = by_comma[i];
+            System.out.println("SENDING");
+            System.out.println(part+",");
+            _socket.send(_id + "\n" + part+",");
+try{Thread.sleep(100);}catch(Exception e){}
+          }
+          if (by_comma.length >= 1) {
+            System.out.println("SENDING");
+            System.out.println(by_comma[by_comma.length-1]);
+            _socket.send(_id + "\n" + by_comma[by_comma.length-1]);
+          }
         }
         public void close() {}
         public void flush() {}
