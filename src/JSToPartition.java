@@ -69,7 +69,7 @@ public class JSToPartition<E> {
       case Token.IF:
         return exprFromIfStatement((IfStatement)node);
       default:
-        System.out.println("INCOMPLETE: "+Token.typeToName(node.getType())+" "+node.getClass().getName());
+        System.err.println("INCOMPLETE: "+Token.typeToName(node.getType())+" "+node.getClass().getName());
         return noimpl();
     }
   }
