@@ -64,13 +64,14 @@ public class BatchWebSocketServer<E, T> extends WebSocketServer {
         public void write(char[] cbuf, int off, int len) {
           String partial_result = new String(cbuf, off, len);
 
+          // Stream results bit by bit
           String[] by_comma = partial_result.split(",");
           for (int i=0; i<by_comma.length-1; i++) {
             String part = by_comma[i];
             System.out.println("SENDING");
             System.out.println(part+",");
             _socket.send(_id + "\n" + part+",");
-try{Thread.sleep(100);}catch(Exception e){}
+            try{Thread.sleep(100);}catch(Exception e){}
           }
           if (by_comma.length >= 1) {
             System.out.println("SENDING");
