@@ -67,15 +67,14 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
     }
   }
 
-  // TODO: Double check this
-  public class EmptyNode extends Block {}
+  public class PrimEmptyNode extends Block {}
 
   @Override
   public Generator Prim(final Op _op, List<Generator> argGens) {
     if (_op == Op.SEQ) {
       switch (argGens.size()) {
         case 0:
-          return Generator.Return(new EmptyNode());
+          return Generator.Return(new PrimEmptyNode());
         case 1:
           return argGens.get(0);
         default:

@@ -95,11 +95,12 @@ public class JSUtil {
 
   public static boolean isEmpty(AstNode node) {
     switch (node.getType()) {
+      case Token.BLOCK:
+        return !node.hasChildren();
       case Token.EMPTY:
         return true;
       case Token.EXPR_VOID:
       case Token.EXPR_RESULT:
-        System.out.println("HIT");
         return JSUtil.isEmpty(((ExpressionStatement)node).getExpression());
       default:
         return false;

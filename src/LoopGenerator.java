@@ -25,7 +25,8 @@ public class LoopGenerator extends AsyncJSGenerator {
 
   public AstNode Generate(final String _in, final String _out) {
     final LoopGenerator _loopGen = this;
-    if (!(collection instanceof JSPartitionFactory.EmptyNode)) {
+    if (!(collection instanceof JSPartitionFactory.PrimEmptyNode)) {
+      // TODO: Collection is not remote
       return noimpl();
     }
     final String _next = var+"_next";
