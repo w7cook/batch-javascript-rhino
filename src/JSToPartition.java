@@ -1,10 +1,12 @@
 import org.mozilla.javascript.Token;
+import org.mozilla.javascript.Node;
 import org.mozilla.javascript.ast.*;
 
 import batch.Op;
 import batch.partition.*;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -22,9 +24,10 @@ public class JSToPartition<E> {
     if (node == null) {
       return factory.Skip();
     }
+    // paper TODO dates, true, false, ?:
     switch (node.getType()) {
       case Token.BLOCK:
-        return exprFromScope((Scope)node);
+        return exprFromBlock(node); // may be Block or Scope
       case Token.CALL:
         return exprFromFunctionCall((FunctionCall)node);
       case Token.EXPR_RESULT:
@@ -34,6 +37,10 @@ public class JSToPartition<E> {
         return exprFromName((Name)node);
       // Binary operators
       // Note: AND and OR are not listed here, since they carry a different
+      // paper TODO basic implementation of AND, OR, NOT
+	    //   AVG, MIN, MAX, COUNT, // aggregation
+	    //   ASC, DESC, // sorting
+	    //   GROUP; // mapping and grouping
       // meaning in javascript
       case Token.ADD:
       case Token.SUB:
@@ -68,6 +75,10 @@ public class JSToPartition<E> {
         );
       case Token.IF:
         return exprFromIfStatement((IfStatement)node);
+      case Token.FUNCTION:
+        return exprFromFunctionNode((FunctionNode)node);
+      case Token.RETURN:
+        return exprFromReturnStatement((ReturnStatement)node);
       default:
         System.err.println("INCOMPLETE: "+Token.typeToName(node.getType())+" "+node.getClass().getName());
         return noimpl();
@@ -82,10 +93,10 @@ public class JSToPartition<E> {
     return exprs;
   }
 
-  private E convertSequence(Iterator<AstNode> nodes) {
+  private E convertSequence(Iterator<Node> nodes) {
     LinkedList<E> sequence = new LinkedList<E>();
     while (nodes.hasNext()) {
-      AstNode node = nodes.next();
+      AstNode node = (AstNode)nodes.next();
       switch (node.getType()) {
         case Token.VAR:
           sequence.addLast(
@@ -108,8 +119,8 @@ public class JSToPartition<E> {
     throw new RuntimeException("Not yet implemented");
   }
 
-  private E exprFromScope(Scope scope) {
-    return convertSequence(scope.getStatements().iterator());
+  private E exprFromBlock(AstNode block) {
+    return convertSequence(block.iterator());
   }
 
   private E exprFromExpressionStatement(ExpressionStatement statement) {
@@ -245,6 +256,26 @@ public class JSToPartition<E> {
       exprFrom(ifStmt.getThenPart()),
       exprFrom(ifStmt.getElsePart())
     );
+  }
+
+  private E exprFromFunctionNode(FunctionNode func) {
+    E result = exprFrom(func.getBody());
+    List<AstNode> reversedParams = new ArrayList<AstNode>(func.getParams());
+    Collections.reverse(reversedParams);
+    for (AstNode param : reversedParams) {
+      result = factory.Fun(mustIdentifierOf(param), result);
+    }
+    return factory.setExtra(
+      result,
+      new MarkedFunction(func.getParams().size())
+    );
+  }
+
+  private E exprFromReturnStatement(ReturnStatement ret) {
+    // Currently assuming inside function definition within batch block
+    // TODO: make other if not in function definition within batch block
+    // TODO: no return value
+    return factory.setExtra(exprFrom(ret.getReturnValue()), new MarkedReturn());
   }
 
   private E exprFromOther(AstNode node) {
