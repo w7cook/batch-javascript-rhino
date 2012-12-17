@@ -35,9 +35,15 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
   public Generator Fun(final String _var, final Generator _body) {
     return new Generator() {
       public AstNode Generate(final String _in, final String _out) {
+        // paper TODO: Prevent remote code in body
+        // TODO:
+        //  x.set_f(function (x) {
+        //    return x + name; // not converting to INPUT
+        //  }
+        //  x.f("*")
         return new FunctionNode() {{
           addParam(JSUtil.genName(_var));
-          setBody(_body.Generate(_in, _out));
+          setBody(JSUtil.genBlock(_body.Generate(_in, _out)));
         }};
       }
     };
@@ -50,7 +56,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
             final String _in,
             final String _out,
             final AstNode _node) {
-          return JSUtil.prependToBlock(
+          return JSUtil.concatBlocks(
             _node,
             Seq(_gens).Generate(_in, _out)
           );

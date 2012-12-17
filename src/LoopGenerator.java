@@ -44,7 +44,7 @@ public class LoopGenerator extends AsyncJSGenerator {
                     String in,
                     String out,
                     final AstNode _body) {
-                  return JSUtil.appendToBlock(
+                  return JSUtil.concatBlocks(
                     _body,
                     new FunctionCall() {{
                       setTarget(JSUtil.genName(_next));

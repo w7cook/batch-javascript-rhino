@@ -1,3 +1,4 @@
+import org.mozilla.javascript.Node;
 import org.mozilla.javascript.Token;
 import org.mozilla.javascript.ast.*;
 
@@ -77,20 +78,19 @@ public class JSUtil {
     }
   }
 
-  public static Block appendToBlock(AstNode maybeBlock, AstNode node) {
-    Block block = JSUtil.genBlock(maybeBlock);
-    if (!JSUtil.isEmpty(node)) {
-      block.addStatement(JSUtil.genStatement(node));
+  public static Block concatBlocks(AstNode node1, AstNode node2) {
+    Block b = new Block();
+    if (!JSUtil.isEmpty(node1)) {
+      for (Node stmt : JSUtil.genBlock(node1)) {
+        b.addStatement((AstNode)stmt);
+      }
     }
-    return block;
-  }
-
-  public static Block prependToBlock(AstNode node, AstNode maybeBlock) {
-    Block block = JSUtil.genBlock(maybeBlock);
-    if (!JSUtil.isEmpty(node)) {
-      block.addChildToFront(JSUtil.genStatement(node));
+    if (!JSUtil.isEmpty(node2)) {
+      for (Node stmt : JSUtil.genBlock(node2)) {
+        b.addStatement((AstNode)stmt);
+      }
     }
-    return block;
+    return b;
   }
 
   public static boolean isEmpty(AstNode node) {

@@ -2,6 +2,7 @@ import org.mozilla.javascript.ast.*;
 
 import java.util.ArrayList;
 
+// paper TODO: Work with terinary conditional operator
 public class IfGenerator extends AsyncJSGenerator {
 
   private static int index = 0;
@@ -46,7 +47,7 @@ public class IfGenerator extends AsyncJSGenerator {
                   String in,
                   String out,
                   final AstNode _then) {
-                return JSUtil.appendToBlock(
+                return JSUtil.concatBlocks(
                   _then,
                   new FunctionCall() {{
                     setTarget(JSUtil.genName(_callback));
@@ -61,7 +62,7 @@ public class IfGenerator extends AsyncJSGenerator {
                   String in,
                   String out,
                   final AstNode _else) {
-                return JSUtil.appendToBlock(
+                return JSUtil.concatBlocks(
                   _else,
                   new FunctionCall() {{
                     setTarget(JSUtil.genName(_callback));

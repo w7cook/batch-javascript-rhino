@@ -1,4 +1,5 @@
-// WHAT IS: f.Mobile(...),
+// TODO: package ...
+
 import org.mozilla.javascript.Parser;
 import org.mozilla.javascript.Token;
 import org.mozilla.javascript.ast.*;
@@ -21,12 +22,12 @@ public class BatchCompiler implements NodeVisitor {
     String fileName = args[0];
     FileReader reader = new FileReader(new File(fileName));
     Parser parser = new Parser();
-    // TODO: only parse batch code
+    // TODO Future: only parse batch code
     AstRoot ast = parser.parse(reader, fileName, /*linenumber*/ 0);
     BatchCompiler compiler = new BatchCompiler();
     ast.visit(compiler);
     if (compiler.compiledBatchNode != null) {
-      // TODO: don't force load all of the file into memory
+      // TODO Future: don't force load all of the file into memory
       reader = new FileReader(new File(fileName));
       StringWriter writer = new StringWriter();
       int chr = reader.read();
