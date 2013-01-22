@@ -3,13 +3,11 @@ import java.io.Writer;
 import java.net.InetSocketAddress;
 
 import batch.Service;
-import batch.syntax.BatchScriptParser;
-import batch.syntax.Expression;
+import batch.syntax.Parser;
 import batch.util.BatchFactory;
 import batch.util.BatchTransport;
 import batch.util.Forest;
-
-import org.antlr.runtime.RecognitionException;
+import batch.util.ForestWriter;
 
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
@@ -58,33 +56,24 @@ public class BatchWebSocketServer<E, T> extends WebSocketServer {
       }
       final String _id = parts[0];
       String script = parts[1];
-      Expression exp = BatchScriptParser.parse(script);
-      Forest result = service.execute(exp.run(factory), null);
       Writer out = new Writer() {
         public void write(char[] cbuf, int off, int len) {
-          String partial_result = new String(cbuf, off, len);
-
-          // Stream results bit by bit
-          String[] by_comma = partial_result.split(",");
-          for (int i=0; i<by_comma.length-1; i++) {
-            String part = by_comma[i];
-            System.out.println("SENDING");
-            System.out.println(part+",");
-            _socket.send(_id + "\n" + part+",");
-            try{Thread.sleep(100);}catch(Exception e){}
-          }
-          if (by_comma.length >= 1) {
-            System.out.println("SENDING");
-            System.out.println(by_comma[by_comma.length-1]);
-            _socket.send(_id + "\n" + by_comma[by_comma.length-1]);
-          }
+          String result = new String(cbuf, off, len);
+          System.out.println("SENDING");
+          System.out.println(result);
+          _socket.send(_id + "\n" + result);
+          //try{Thread.sleep(100);}catch(Exception e){}
         }
         public void close() {}
         public void flush() {}
       };
-      transport.write(result, out);
-    } catch (RecognitionException e) {
-      e.printStackTrace();
+      ForestWriter forestWriter = transport.writer(out);
+      service.executeServer(
+        Parser.parse(script, factory),
+        null, // TODO: deal with input forest
+        forestWriter
+      );
+      forestWriter.complete(); // TODO Question: should this call complete outside of executeServer?
     } catch (IOException e) {
       e.printStackTrace();
     }
