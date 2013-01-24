@@ -73,7 +73,6 @@ public class BatchWebSocketServer<E, T> extends WebSocketServer {
         null, // TODO: deal with input forest
         forestWriter
       );
-      forestWriter.complete(); // TODO Question: should this call complete outside of executeServer?
     } catch (IOException e) {
       e.printStackTrace();
     }
