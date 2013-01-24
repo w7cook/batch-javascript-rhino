@@ -1,3 +1,17 @@
+var __BATCH_SERVICE__;
+
+/**
+ * Incrementally builds object as subsequent portions of JSON is given.
+ * NOTE: assumes numbers are not split across multiple append calls
+ *
+ * onchild is called when starting to parse an
+ *   element of an array or value of an object's property
+ *
+ * onparse is called when finished parsing this value.
+ *
+ * append returns the leftover string that is not consumed.
+ *
+ */
 function JSONStream() {
   this.onparse = function(value) {};
   this.onchild = function(key, child) {};
@@ -82,7 +96,9 @@ JSONStream.prototype = {
         this.children[this.key] = this.curr_child;
         this.onchild(this.key, this.curr_child);
       }
-      next_part = this.curr_child.append(next_part);
+      if (!this.curr_child.finished) {
+        next_part = this.curr_child.append(next_part);
+      }
       if (this.curr_child.finished
           && (match = next_part.match(/^\s*(,|})(.*)$/))) {
         this.curr_child = undefined;
@@ -132,7 +148,9 @@ JSONStream.prototype = {
         this.children[this.index] = this.curr_child;
         this.onchild(this.index, this.curr_child);
       }
-      next_part = this.curr_child.append(next_part);
+      if (!this.curr_child.finished) {
+        next_part = this.curr_child.append(next_part);
+      }
       if (this.curr_child.finished
           && (match = next_part.match(/^\s*(,|])(.*)$/))) {
         this.curr_child = undefined;
@@ -215,7 +233,6 @@ JSONStream.prototype = {
 
 };
 
-var __BATCH_SERVICE__;
 window.onload = (function(old_onload) {
   "use strict";
   return function() {
@@ -223,10 +240,11 @@ window.onload = (function(old_onload) {
 
     function AsyncObject(jsonStream) {
       this.jsonStream = jsonStream;
-      this.jsonStream.onchild = (function(key, child) {
+      var onchild = (function (key, child) {
         child.onparse = this.tryCallback.bind(this);
-        child.onchild = this.tryCallback.bind(this);
+        child.onchild = onchild;
       }).bind(this);
+      this.jsonStream.onchild = onchild;
       this.returnObject = {
         asyncForEach: (function(loop_var, step_cb, post_cb) {
           if (this.callback) {
