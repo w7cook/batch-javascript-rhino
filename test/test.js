@@ -19,6 +19,16 @@ window.onload = (function(old_onload) {
         } else {
           page.putText("- " + name);
         }
+        if (file.isDirectory()) {
+          for each (var inner in file.listFiles()) {
+            page.putText("-+ " + inner.getName());
+            if (inner.isDirectory()) {
+              for each (var inner2 in inner.listFiles()) {
+                page.putText("--+ " + inner2.getName());
+              }
+            }
+          }
+        }
       }
       page.putText("EOD");
     }

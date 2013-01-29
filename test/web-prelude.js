@@ -326,7 +326,7 @@ window.onload = (function(old_onload) {
         }
       }
     };
-    
+
     var __next_id = 0;
     function getNextID() {
       return __next_id++;
