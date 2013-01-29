@@ -140,7 +140,8 @@ JSONStream.prototype = {
   parseArrayElement: function(next_part) {
     var match;
     if (this.started === 'array') {
-      if (!this.curr_child) {
+      if (!this.curr_child && !next_part.match(/^\s*]$/)) {
+        // started child
         this.curr_child = new JSONStream();
         this.curr_child.initData = (function(index, data) {
           this.data[index] = data;
@@ -148,17 +149,19 @@ JSONStream.prototype = {
         this.children[this.index] = this.curr_child;
         this.onchild(this.index, this.curr_child);
       }
-      if (!this.curr_child.finished) {
-        next_part = this.curr_child.append(next_part);
-      }
-      if (this.curr_child.finished
-          && (match = next_part.match(/^\s*(,|])(.*)$/))) {
-        this.curr_child = undefined;
-        this.index++;
-        if (match[1] === ']') {
-          return this.parseEndArray(next_part);
+      if (this.curr_child) {
+        if (!this.curr_child.finished) {
+          next_part = this.curr_child.append(next_part);
         }
-        return match[2];
+        if (this.curr_child.finished
+            && (match = next_part.match(/^\s*(,|])(.*)$/))) {
+          this.curr_child = undefined;
+          this.index++;
+          if (match[1] === ']') {
+            return this.parseEndArray(next_part);
+          }
+          return match[2];
+        }
       }
     }
     return next_part;
