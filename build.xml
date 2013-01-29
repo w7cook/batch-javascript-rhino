@@ -2,10 +2,10 @@
   <property file="build.properties" />
 
   <target name="clean">
+    <ant antfile="build.xml" target="clean" dir="${rhino.dir}" />
+    <ant antfile="test/build.xml" target="clean" />
     <delete dir="${dist.dir}" />
     <delete dir="${build.dir}" />
-    <ant antfile="build.xml" target="clean" dir="${rhino.dir}" />
-    <ant antfile="build.xml" target="clean" dir="test" />
   </target>
 
   <target name="rhino">

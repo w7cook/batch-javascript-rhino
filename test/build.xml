@@ -3,7 +3,7 @@
 
   <target name="clean">
     <delete file="test/compiled-test.js" />
-    <delete dir="${build.dir}/server/classes" />
+    <delete dir="${build.dir}/server" />
   </target>
 
   <target name="compile-test">
