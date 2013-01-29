@@ -1,0 +1,58 @@
+<project name="test" default="compile-test" basedir="..">
+  <property file="build.properties" />
+
+  <target name="clean">
+    <delete file="test/compiled-test.js" />
+    <delete dir="${build.dir}/server/classes" />
+  </target>
+
+  <target name="compile-test">
+    <java
+      classname="BatchCompiler"
+      output="test/compiled-test.js"
+      errorproperty="java-errors"
+      >
+      <arg value="${basedir}/test/test.js" />
+      <classpath>
+        <fileset dir="lib"><include name="**/*.jar" /></fileset>
+        <fileset dir="${dist.dir}"><include name="**/*.jar" /></fileset>
+      </classpath>
+    </java>
+    <echo message="${java-errors}" />
+  </target>
+
+  <target name="test" depends="compile-test">
+
+    <mkdir dir="${build.dir}/server/classes" />
+    <mkdir dir="${build.dir}/server/batch/classes" />
+
+    <path id="server.class.path">
+      <fileset dir="lib"><include name="**/*.jar" /></fileset>
+      <fileset dir="${dist.dir}"><include name="**/*.jar" /></fileset>
+      <fileset dir="test/server/lib"><include name="**/*.jar" /></fileset>
+      <pathelement location="${build.dir}/server/classes" />
+      <pathelement location="${build.dir}/server/batch/classes" />
+    </path>
+
+    <javac
+      classpathref="server.class.path"
+      destdir="${build.dir}/server/batch/classes"
+      srcdir="test/server/batch"
+      includeantruntime="false"
+    />
+    <javac
+      classpathref="server.class.path"
+      destdir="${build.dir}/server/classes"
+      srcdir="test/server/src"
+      includeantruntime="false"
+    />
+    <java
+      classname="TestWebServer"
+      classpathref="server.class.path"
+      fork="true"
+      >
+      <arg value="${server.port}" />
+    </java>
+  </target>
+
+</project>

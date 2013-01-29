@@ -1,0 +1,47 @@
+<project name="batch-javascript-rhino" default="compile-test" basedir=".">
+  <property file="build.properties" />
+
+  <target name="clean">
+    <delete dir="${dist.dir}" />
+    <delete dir="${build.dir}" />
+    <ant antfile="build.xml" target="clean" dir="${rhino.dir}" />
+    <ant antfile="build.xml" target="clean" dir="test" />
+  </target>
+
+  <target name="rhino">
+    <mkdir dir="${dist.dir}" />
+    <ant
+      antfile="build.xml"
+      target="jar"
+      dir="${rhino.dir}"
+      inheritAll="false"
+      >
+      <property name="dist.dir" location="${dist.dir}" />
+      <property name="rhino.jar" value="${rhino.jar}" />
+    </ant>
+  </target>
+
+  <target name="build" depends="rhino">
+    <mkdir dir="${build.dir}/classes" />
+    <javac
+      srcdir="src"
+      destdir="${build.dir}/classes"
+      classpath="${dist.dir}/${rhino.jar}:lib/batches.jar"
+      includeantruntime="false"
+    />
+    <jar
+      destfile="${dist.dir}/${js-batch.jar}"
+      basedir="${build.dir}/classes"
+      update="true"
+    />
+  </target>
+
+  <target name="compile-test" depends="build">
+    <ant antfile="test/build.xml" target="compile-test" />
+  </target>
+
+  <target name="test" depends="build">
+    <ant antfile="test/build.xml" target="test" />
+  </target>
+
+</project>

@@ -1,1 +1,0 @@
-javac -cp lib/batches.jar:server/lib/jackson-core-asl-1.3.2.jar:server/lib/WebSocket.jar:server/lib/antlr.jar:server/batch -d server/classes server/src/*.java && java -cp lib/batches.jar:server/lib/jackson-core-asl-1.3.2.jar:server/lib/WebSocket.jar:server/lib/antlr.jar:server/batch:server/classes TestWebServer 9999

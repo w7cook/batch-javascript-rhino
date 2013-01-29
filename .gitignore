@@ -1,8 +1,9 @@
 *.class
+dist
 rhino1_7R4/build
 rhino1_7R4/lib
 build
 server-test
 TODO
-bin/js/compiled-test.js
+compiled-test.js
 ignore
