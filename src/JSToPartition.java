@@ -259,16 +259,15 @@ public class JSToPartition<E> {
   }
 
   private E exprFromFunctionNode(FunctionNode func) {
-    E result = exprFrom(func.getBody());
-    List<AstNode> reversedParams = new ArrayList<AstNode>(func.getParams());
-    Collections.reverse(reversedParams);
-    for (AstNode param : reversedParams) {
-      result = factory.Fun(mustIdentifierOf(param), result);
+    switch (func.getParams().size()) {
+      case 0:
+        return factory.Fun(
+          mustIdentifierOf(func.getParams().get(0)),
+          exprFrom(func.getBody())
+        );
+      default:
+        return noimpl();
     }
-    return factory.setExtra(
-      result,
-      new MarkedFunction(func.getParams().size())
-    );
   }
 
   private E exprFromReturnStatement(ReturnStatement ret) {
