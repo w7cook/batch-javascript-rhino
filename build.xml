@@ -24,6 +24,7 @@
   <target name="build" depends="rhino">
     <mkdir dir="${build.dir}/classes" />
     <javac
+      debug="true"
       srcdir="src"
       destdir="${build.dir}/classes"
       classpath="${dist.dir}/${rhino.jar}:lib/batches.jar"
