@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.io.StringReader;
 import java.io.Writer;
 import java.net.InetSocketAddress;
 
@@ -7,6 +8,7 @@ import batch.syntax.Parser;
 import batch.util.BatchFactory;
 import batch.util.BatchTransport;
 import batch.util.Forest;
+import batch.util.ForestReader;
 import batch.util.ForestWriter;
 
 import org.java_websocket.WebSocket;
@@ -49,17 +51,16 @@ public class BatchWebSocketServer<E, T> extends WebSocketServer {
   @Override
   public void onMessage(final WebSocket _socket, String message) {
     try {
-      String[] parts = message.split("\n", 2);
+      String[] parts = message.split("\n", 3);
       if (parts.length < 2) {
         System.out.println("No id before script: "+message);
         return;
       }
       final String _id = parts[0];
-      String script = parts[1];
       Writer out = new Writer() {
         public void write(char[] cbuf, int off, int len) {
           String result = new String(cbuf, off, len);
-          System.out.println("SENDING");
+          System.out.println("--SENDING-->");
           System.out.println(result);
           _socket.send(_id + "\n" + result);
           //try{Thread.sleep(100);}catch(Exception e){}
@@ -67,11 +68,16 @@ public class BatchWebSocketServer<E, T> extends WebSocketServer {
         public void close() {}
         public void flush() {}
       };
-      ForestWriter forestWriter = transport.writer(out);
+      String script = parts[1];
+      System.out.println("Script: " + script);
+      System.out.println("Input: "+(parts.length > 2 ? parts[2] : "<Nothing>"));
+      ForestReader input = parts.length > 2
+        ? transport.read(new StringReader(parts[2].trim()))
+        : null;
       service.executeServer(
         Parser.parse(script, factory),
-        null, // TODO: deal with input forest
-        forestWriter
+        input,
+        transport.writer(out)
       );
     } catch (IOException e) {
       e.printStackTrace();

@@ -49,7 +49,6 @@
     <java
       classname="TestWebServer"
       classpathref="server.class.path"
-      fork="true"
       >
       <arg value="${server.port}" />
     </java>

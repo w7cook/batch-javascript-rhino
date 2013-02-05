@@ -9,8 +9,10 @@ var page = {
 window.onload = (function(old_onload) {
   return function() {
     if (old_onload) old_onload.apply(window, arguments);
+    var x = 1000;
 
     batch (var root in __BATCH_SERVICE__) {
+      page.putText("FOO(" + x + ") = " + root.foo(x));
       page.putText("Directory: " + root.getDir().getName());
       for each (var file in root.getDir().listFiles()) {
         var name = file.getName();

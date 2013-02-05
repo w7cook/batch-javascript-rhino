@@ -15,13 +15,16 @@ public class TestWebServer {
 
     System.out.println("Starting server on port "+port);
     try {
-      runServer(port, new JSONTransport());
+      BatchWebSocketServer server = runServer(port, new JSONTransport());
+      System.out.println("Enter anything to quit");
+      System.in.read();
+      server.stop();
     } catch (IOException e) {
       e.printStackTrace();
     }
   }
 
-  private static void runServer(int port, BatchTransport transport)
+  private static BatchWebSocketServer<Evaluate, BasicInterface> runServer(int port, BatchTransport transport)
       throws IOException {
     BasicObj root = new BasicObj(1000);
     EvalService<BasicInterface> service = new EvalService<BasicInterface>(root);
@@ -30,6 +33,7 @@ public class TestWebServer {
         new InetSocketAddress(port), service, transport, new batch.syntax.Eval()
       );
     server.start();
+    return server;
   }
 
 }

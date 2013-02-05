@@ -362,7 +362,12 @@ window.onload = (function(old_onload) {
           if (websocket.readyState != WebSocket.OPEN) {
             setTimeout(try_send, 10);
           } else {
-            websocket.send(id + '\n' + script);
+            websocket.send(
+              id + '\n' +
+              script + '\n\n' +
+              'BATCH 1.0 JSON 1.0\n' +
+              JSON.stringify(data)
+            );
           }
         }
         try_send();
