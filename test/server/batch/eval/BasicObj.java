@@ -28,6 +28,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 
+import batch.Fun; // Line added by: Brian Bales
+
 public class BasicObj extends BasicInterface {
 	int inc;
 	public BasicObj(int inc) {
@@ -39,6 +41,18 @@ public class BasicObj extends BasicInterface {
 	}
 	public BasicObj bar(int x) {
 		return new BasicObj(inc + x);
+	}
+	/**
+	 * Function added by: Brian Bales
+	 */
+	public int firstPow2That(Fun<Integer, Boolean> f) {
+		int pow2 = 1;
+		while (true) {
+			if (f.apply(pow2)) {
+				return pow2;
+			}
+			pow2 *= 2;
+		}
 	}
 	public byte[] getImage(String name) throws IOException {
 		FileInputStream fis = new FileInputStream("test/images/" + name + ".jpg");

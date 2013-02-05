@@ -13,6 +13,10 @@ window.onload = (function(old_onload) {
 
     batch (var root in __BATCH_SERVICE__) {
       page.putText("FOO(" + x + ") = " + root.foo(x));
+      page.putText(
+        "First pow of 2 > 10 = "
+        + root.firstPow2That(function(x) { return x > 10; })
+      );
       page.putText("Directory: " + root.getDir().getName());
       for each (var file in root.getDir().listFiles()) {
         var name = file.getName();

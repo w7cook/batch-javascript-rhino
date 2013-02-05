@@ -260,7 +260,7 @@ public class JSToPartition<E> {
 
   private E exprFromFunctionNode(FunctionNode func) {
     switch (func.getParams().size()) {
-      case 0:
+      case 1:
         return factory.Fun(
           mustIdentifierOf(func.getParams().get(0)),
           exprFrom(func.getBody())
