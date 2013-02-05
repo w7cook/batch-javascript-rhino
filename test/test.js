@@ -20,30 +20,33 @@ window.onload = (function(old_onload) {
       page.putText("FOO(" + x + ") = " + root.foo(x));
     }
 
-    batch function test(x) {
-      page.putText('Checked on ' + x);
+    batch function markedNameBySize(file) {
+      var name = file.getName();
+      if (file.length() > 1000) {
+        return "* " + name;
+      } else {
+        return "- " + name;
+      }
+    }
+
+    batch function gt10(x) {
       return x > 10;
     }
 
     batch (var root in __BATCH_SERVICE__) {
       page.putText(
         "First pow of 2 > 10 = "
-        + root.firstPow2That(function(x) { return x > 10; })
+        + root.firstPow2That(function(x) { return x > 10; }) // gt10
       );
       page.putText("Directory: " + root.getDir().getName());
       for each (var file in root.getDir().listFiles()) {
-        var name = file.getName();
-        if (file.length() > 1000) {
-          page.putText("* " + name);
-        } else {
-          page.putText("- " + name);
-        }
+        page.putText(markedNameBySize(file));
         if (file.isDirectory()) {
           for each (var inner in file.listFiles()) {
-            page.putText("-+ " + inner.getName());
+            page.putText("-" + markedNameBySize(inner));
             if (inner.isDirectory()) {
               for each (var inner2 in inner.listFiles()) {
-                page.putText("--+ " + inner2.getName());
+                page.putText("--" + markedNameBySize(inner2));
               }
             }
           }

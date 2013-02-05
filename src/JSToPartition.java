@@ -10,14 +10,20 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 public class JSToPartition<E> {
   private PartitionFactory<E> factory;
   private String root;
+  private Map<String, FunctionNode> batchFunctions;
 
-  public JSToPartition(PartitionFactory<E> factory, String root) {
+  public JSToPartition(
+      PartitionFactory<E> factory,
+      String root,
+      Map<String, FunctionNode> batchFunctions) {
     this.factory = factory;
     this.root = root;
+    this.batchFunctions = batchFunctions;
   }
 
   public E exprFrom(AstNode node) {
@@ -137,8 +143,31 @@ public class JSToPartition<E> {
           propGet.getProperty().getIdentifier(),
           mapExprFrom(call.getArguments())
         );
-      default:
-        return noimpl();
+    }
+    String funcName = identifierOf(target);
+    if (funcName != null && batchFunctions.containsKey(funcName)) {
+      FunctionNode func = batchFunctions.get(funcName);
+      AstNode inlinedBody = func.getBody();
+      for (int i = func.getParams().size() - 1; i >= 0; i--) {
+        inlinedBody = JSUtil.concatBlocks(
+          JSUtil.genDeclare(
+            mustIdentifierOf(func.getParams().get(i)),
+            i < call.getArguments().size()
+              ? call.getArguments().get(i)
+              : new KeywordLiteral() {{setType(Token.NULL);}} // TODO: use <undefined>
+          ),
+          inlinedBody
+        );
+      }
+
+      // TODO: convert local code to new scopes, so variables don't clash
+      return //factory.setExtra(
+        exprFrom(inlinedBody)//,
+        //new NewScope()
+      //)
+      ;
+    } else {
+      return noimpl();
     }
   }
 

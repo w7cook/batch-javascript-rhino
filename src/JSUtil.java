@@ -28,12 +28,12 @@ public class JSUtil {
       final AstNode _expression,
       final AstNode _body) {
     return new Scope() {{
-      addChild(new ExpressionStatement(genDeclare(_var, _expression)));
+      addChild(genDeclare(_var, _expression));
       addChild(_body);
     }};
   }
 
-  public static VariableDeclaration genDeclare(
+  public static VariableDeclaration genDeclareExpr(
       final String _var,
       final AstNode _init) {
     return new VariableDeclaration() {{
@@ -43,6 +43,12 @@ public class JSUtil {
         setInitializer(_init);
       }});
     }};
+  }
+
+  public static ExpressionStatement genDeclare(String var, AstNode init) {
+    VariableDeclaration declareExpr = genDeclareExpr(var, init);
+    declareExpr.setIsStatement(true);
+    return new ExpressionStatement(declareExpr);
   }
 
   public static AstNode genCall(
@@ -68,13 +74,12 @@ public class JSUtil {
   }
 
   public static Block genBlock(final AstNode _node) {
-    switch (_node.getType()) {
-      case Token.BLOCK:
-        return (Block)_node;
-      default:
-        return new Block() {{
-          addStatement(JSUtil.genStatement(_node));
-        }};
+    if (_node instanceof Block) {
+      return (Block)_node;
+    } else {
+      return new Block() {{
+        addStatement(JSUtil.genStatement(_node));
+      }};
     }
   }
 

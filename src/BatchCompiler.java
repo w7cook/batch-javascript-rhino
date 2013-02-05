@@ -19,7 +19,9 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 // TODO Future: allow batch functions to be referred to across files
 public class BatchCompiler implements NodeVisitor {
@@ -52,14 +54,16 @@ public class BatchCompiler implements NodeVisitor {
   // Ordered by absolute position in source
   private List<TargetBatch<? extends AstNode>> batchNodes = new ArrayList<>();
   private List<TargetBatch<BatchLoop>> batchLoops = new ArrayList<>();
-  private List<TargetBatch<BatchFunction>> batchFunctions = new ArrayList<>();
+  private List<TargetBatch<BatchFunction>> batchFunctionNodes =
+    new ArrayList<>();
+  private Map<String, FunctionNode> batchFunctionsMap = new HashMap<>();
 
   public boolean visit(AstNode node) {
     if (node instanceof BatchLoop) {
       batchLoops.add(new TargetBatch<BatchLoop>((BatchLoop)node, null));
       return false;
     } else if (node instanceof BatchFunction) {
-      batchFunctions.add(
+      batchFunctionNodes.add(
         new TargetBatch<BatchFunction>((BatchFunction)node, null)
       );
       return false;
@@ -79,19 +83,29 @@ public class BatchCompiler implements NodeVisitor {
   }
 
   private List<TargetBatch<BatchFunction>> compileBatchFunctions() {
-    for (TargetBatch<BatchFunction> func: batchFunctions) {
-      func.compiled = func.original.getFunctionNode();
+    if (batchFunctionsMap.isEmpty()) {
+      for (TargetBatch<BatchFunction> batchFunc: batchFunctionNodes) {
+        FunctionNode func = batchFunc.original.getFunctionNode();
+        batchFunc.compiled = func;
+        if (func.getName().equals("")) {
+          throw new Error("Batch functions must be given a name");
+        }
+        batchFunctionsMap.put(
+          func.getName(),
+          func
+        );
+      }
     }
-    return batchFunctions;
+    return batchFunctionNodes;
   }
 
   private List<TargetBatch<BatchLoop>> compileBatchLoops() {
     for (TargetBatch<BatchLoop> loop : batchLoops) {
       loop.compiled = new Scope();
-      loop.compiled.addChild(new ExpressionStatement(JSUtil.genDeclare(
+      loop.compiled.addChild(JSUtil.genDeclare(
         "s$",
         new ObjectLiteral()
-      )));
+      ));
 
       BatchLoop batch = loop.original;
       String root = null;
@@ -118,7 +132,7 @@ public class BatchCompiler implements NodeVisitor {
       }
       CodeModel.factory.allowAllTransers = true;
       PExpr origExpr =
-        new JSToPartition<PExpr>(CodeModel.factory, root)
+        new JSToPartition<PExpr>(CodeModel.factory, root, batchFunctionsMap)
           .exprFrom(batch.getBody());
       Environment env = new Environment(CodeModel.factory)
         .extend(CodeModel.factory.RootName(), null, Place.REMOTE);
@@ -148,10 +162,10 @@ public class BatchCompiler implements NodeVisitor {
         loop.compiled.addChild(JSUtil.genStatement(preNode));
       }
       if (script != null) {
-        loop.compiled.addChild(new ExpressionStatement(JSUtil.genDeclare(
+        loop.compiled.addChild(JSUtil.genDeclare(
           "script$",
           JSUtil.genStringLiteral(script)
-        )));
+        ));
         final AstNode _postNode = postNode;
         loop.compiled.addChild(new ExpressionStatement(JSUtil.genCall(
           JSUtil.genName(service),
