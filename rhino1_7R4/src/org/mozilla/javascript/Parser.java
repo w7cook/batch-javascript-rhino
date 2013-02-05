@@ -959,7 +959,7 @@ public class Parser
               return forLoop();
 
           case Token.BATCH:
-              return batchLoop();
+              return batchLoopOrFunction();
 
           case Token.TRY:
               return tryStatement();
@@ -1331,12 +1331,27 @@ public class Parser
         return pn;
     }
 
-    private Loop batchLoop()
+    private AstNode batchLoopOrFunction()
         throws IOException
     {
         if (currentToken != Token.BATCH) codeBug();
         consumeToken();
         int batchPos = ts.tokenBeg, lineno = ts.lineno;
+        if (matchToken(Token.FUNCTION)) {
+          BatchFunction bf = new BatchFunction(
+            batchPos,
+            function(FunctionNode.FUNCTION_EXPRESSION_STATEMENT)
+          );
+          bf.setLineno(lineno);
+          return bf;
+        } else {
+          return batchLoop(batchPos, lineno);
+        }
+    }
+
+    private Loop batchLoop(int batchPos, int lineno)
+        throws IOException
+    {
         boolean hasIn = false;
         int inPos = -1, lp = -1, rp = -1;
         AstNode init = null;  // init is also foo in 'foo in object'

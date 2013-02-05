@@ -10,9 +10,22 @@ window.onload = (function(old_onload) {
   return function() {
     if (old_onload) old_onload.apply(window, arguments);
     var x = 1000;
+      //var set = root.makeSet();
+      //for each (var x in mySet) {
+      //  set.add(x);
+      //}
+      //root.tryItOn(set);
 
     batch (var root in __BATCH_SERVICE__) {
       page.putText("FOO(" + x + ") = " + root.foo(x));
+    }
+
+    batch function test(x) {
+      page.putText('Checked on ' + x);
+      return x > 10;
+    }
+
+    batch (var root in __BATCH_SERVICE__) {
       page.putText(
         "First pow of 2 > 10 = "
         + root.firstPow2That(function(x) { return x > 10; })
