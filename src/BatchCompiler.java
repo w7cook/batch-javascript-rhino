@@ -21,13 +21,14 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+// TODO Future: allow batch functions to be referred to across files
 public class BatchCompiler implements NodeVisitor {
   public static void main(String[] args)
       throws FileNotFoundException, IOException {
     String fileName = args[0];
     FileReader reader = new FileReader(new File(fileName));
     Parser parser = new Parser();
-    // TODO Future: only parse batch code
+    // TODO Extra: only parse batch code
     AstRoot ast = parser.parse(reader, fileName, /*linenumber*/ 0);
     BatchCompiler compiler = new BatchCompiler();
     ast.visit(compiler);
