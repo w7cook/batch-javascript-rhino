@@ -85,6 +85,8 @@ public class JSToPartition<E> {
         return exprFromFunctionNode((FunctionNode)node);
       case Token.RETURN:
         return exprFromReturnStatement((ReturnStatement)node);
+      case Token.EMPTY:
+        return factory.Skip();
       default:
         System.err.println("INCOMPLETE: "+Token.typeToName(node.getType())+" "+node.getClass().getName());
         return noimpl();
@@ -147,7 +149,7 @@ public class JSToPartition<E> {
     String funcName = identifierOf(target);
     if (funcName != null && batchFunctions.containsKey(funcName)) {
       FunctionNode func = batchFunctions.get(funcName);
-      AstNode inlinedBody = func.getBody();
+      AstNode inlinedBody = func.getBody(); // TODO Warning: this will have multiple parents, is that ok?
       for (int i = func.getParams().size() - 1; i >= 0; i--) {
         inlinedBody = JSUtil.concatBlocks(
           JSUtil.genDeclare(

@@ -45,10 +45,12 @@ public class JSUtil {
     }};
   }
 
-  public static ExpressionStatement genDeclare(String var, AstNode init) {
+  public static VariableDeclaration genDeclare(String var, AstNode init) {
     VariableDeclaration declareExpr = genDeclareExpr(var, init);
     declareExpr.setIsStatement(true);
-    return new ExpressionStatement(declareExpr);
+    return declareExpr;
+    // Don't want to wrap in ExpressionStatement, ends up with double semicolons
+    //return new ExpressionStatement(declareExpr);
   }
 
   public static AstNode genCall(
@@ -68,6 +70,11 @@ public class JSUtil {
       case Token.EXPR_RESULT:
       case Token.IF:
         return node;
+      case Token.VAR:
+        if (((VariableDeclaration)node).isStatement()) {
+          return node;
+        }
+        // fallthrough
       default:
         return new ExpressionStatement(node);
     }
@@ -101,7 +108,12 @@ public class JSUtil {
   public static boolean isEmpty(AstNode node) {
     switch (node.getType()) {
       case Token.BLOCK:
-        return !node.hasChildren();
+        for (Node inner : node) {
+          if (!isEmpty((AstNode)inner)) {
+            return false;
+          }
+        }
+        return true;
       case Token.EMPTY:
         return true;
       case Token.EXPR_VOID:

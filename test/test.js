@@ -20,9 +20,9 @@ window.onload = (function(old_onload) {
       page.putText("FOO(" + x + ") = " + root.foo(x));
     }
 
-    batch function markedNameBySize(file) {
-      var name = file.getName();
-      if (file.length() > 1000) {
+    batch function markedNameBySize(afile) {
+      var name = afile.getName();
+      if (afile.length() > 1000) {
         return "* " + name;
       } else {
         return "- " + name;
