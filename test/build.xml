@@ -11,6 +11,7 @@
       classname="BatchCompiler"
       output="test/compiled-test.js"
       errorproperty="java-errors"
+      fork="true"
       >
       <arg value="${basedir}/test/test.js" />
       <classpath>
