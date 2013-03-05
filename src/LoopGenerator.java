@@ -27,7 +27,7 @@ public class LoopGenerator extends AsyncJSGenerator {
     final LoopGenerator _loopGen = this;
     if (!(collection instanceof JSPartitionFactory.PrimEmptyNode)) {
       // TODO: Collection is not remote
-      return noimpl();
+      return JSUtil.noimpl();
     }
     final String _next = var+"_next";
     return JSUtil.genCall(
@@ -80,10 +80,6 @@ public class LoopGenerator extends AsyncJSGenerator {
       this.bodyGen,
       newCallback
     );
-  }
-
-  private static <E> E noimpl() {
-    throw new RuntimeException("Not yet implemented");
   }
 }
 

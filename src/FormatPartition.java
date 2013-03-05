@@ -8,32 +8,28 @@ class FormatPartition extends Format implements PartitionFactory<String> {
 
   @Override
   public String Other(Object external, List<String> subs) {
-    return noimpl();
+    return JSUtil.noimpl();
   }
 
   @Override
   public String DynamicCall(String target, String method,
       List<String> args) {
-    return noimpl();
+    return JSUtil.noimpl();
   }
 
   @Override
   public String Mobile(String type, String exp) {
-    return noimpl();
+    return JSUtil.noimpl();
   }
 
   @Override
   public String Other(Object external, String... subs) {
-    return noimpl();
+    return JSUtil.noimpl();
   }
 
   @Override
   public String setExtra(String exp, Object extra) {
     return exp;
-  }
-
-  private <E> E noimpl() {
-    throw new RuntimeException("Not yet implemented");
   }
 
 }

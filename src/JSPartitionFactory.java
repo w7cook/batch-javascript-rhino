@@ -26,7 +26,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
     } else if (_value instanceof Float) {
       node = new NumberLiteral(((Float)_value).doubleValue());
     } else {
-      node = noimpl();
+      node = JSUtil.noimpl();
     }
     return Generator.Return(node);
   }
@@ -92,7 +92,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
             switch (_op) {
               case NOT:
             }
-            return noimpl();
+            return JSUtil.noimpl();
           case 2:
             switch (_op) {
               case ADD: type = Token.ADD; break;
@@ -107,7 +107,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
               case LE:  type = Token.LE;  break;
               case GE:  type = Token.GE;  break;
               default:
-                return noimpl();
+                return JSUtil.noimpl();
             }
             return
               new InfixExpression(
@@ -117,7 +117,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
                 0
               );
           default:
-            return noimpl();
+            return JSUtil.noimpl();
         }
       }
     });
@@ -239,7 +239,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
       List<Generator> subGens) {
     return Monad.SequenceBind(subGens, new JSGenFunction<List<AstNode>>() {
       public AstNode Generate(String in, String out, List<AstNode> subs) {
-        return noimpl();
+        return JSUtil.noimpl();
       }
     });
   }
@@ -251,7 +251,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
       List<Generator> args) {
     return new Generator() {
       public AstNode Generate(String in, String out) {
-        return noimpl();
+        return JSUtil.noimpl();
       }
     };
   }
@@ -260,7 +260,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
   public Generator Mobile(String type, Generator exp) {
     return new Generator() {
       public AstNode Generate(String in, String out) {
-        return noimpl();
+        return JSUtil.noimpl();
       }
     };
   }
@@ -282,9 +282,5 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
   @Override
   public Generator Skip() {
     return Generator.Return(new EmptyStatement());
-  }
-
-  private static <E> E noimpl() {
-    throw new RuntimeException("Not yet implemented");
   }
 }

@@ -120,7 +120,7 @@ public class BatchCompiler implements NodeVisitor {
           root = ((Name)batch.getIterator()).getIdentifier();
           break;
         default:
-          noimpl();
+          JSUtil.noimpl();
       }
       String service = null;
       switch (batch.getIteratedObject().getType()) {
@@ -128,7 +128,7 @@ public class BatchCompiler implements NodeVisitor {
           service = ((Name)batch.getIteratedObject()).getIdentifier();
           break;
         default:
-          noimpl();
+          JSUtil.noimpl();
       }
       CodeModel.factory.allowAllTransers = true;
       PExpr origExpr =
@@ -184,14 +184,10 @@ public class BatchCompiler implements NodeVisitor {
           }}
         )));
       } else {
-        noimpl();
+        JSUtil.noimpl();
       }
     }
     return batchLoops;
-  }
-
-  private <E> E noimpl() {
-    throw new RuntimeException("Not yet implemented");
   }
 
   class TargetBatch<O> {

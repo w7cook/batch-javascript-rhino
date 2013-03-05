@@ -123,4 +123,38 @@ public class JSUtil {
         return false;
     }
   }
+
+  public static String identifierOf(AstNode node) {
+    switch (node.getType()) {
+      case Token.NAME:
+        return ((Name)node).getIdentifier();
+      case Token.VAR:
+        VariableDeclaration decl = (VariableDeclaration)node;
+        List<VariableInitializer> inits = decl.getVariables();
+        if (inits.size() == 1) {
+          VariableInitializer init = inits.get(0);
+          if (init.getInitializer() == null && !init.isDestructuring()) {
+            return identifierOf(init.getTarget());
+          } else {
+            return null;
+          }
+        } else {
+          return null;
+        }
+      default:
+        return null;
+    }
+  }
+
+  public static String mustIdentifierOf(AstNode node) {
+    String identifier = identifierOf(node);
+    if (identifier == null) {
+      return noimpl();
+    }
+    return identifier;
+  }
+
+  public static <E> E noimpl() {
+    throw new RuntimeException("Not yet implemented");
+  }
 }

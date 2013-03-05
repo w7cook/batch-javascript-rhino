@@ -35,9 +35,5 @@ abstract public class Generator implements ExtraInfo<Generator> {
       }
     };
   }
-
-  private static <E> E noimpl() {
-    throw new RuntimeException("Not yet implemented");
-  }
 }
 

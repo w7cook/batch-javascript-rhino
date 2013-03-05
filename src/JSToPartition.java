@@ -89,7 +89,7 @@ public class JSToPartition<E> {
         return factory.Skip();
       default:
         System.err.println("INCOMPLETE: "+Token.typeToName(node.getType())+" "+node.getClass().getName());
-        return noimpl();
+        return JSUtil.noimpl();
     }
   }
 
@@ -123,10 +123,6 @@ public class JSToPartition<E> {
     return factory.Prim(Op.SEQ, sequence);
   }
 
-  private <E> E noimpl() {
-    throw new RuntimeException("Not yet implemented");
-  }
-
   private E exprFromBlock(AstNode block) {
     return convertSequence(block.iterator());
   }
@@ -146,14 +142,14 @@ public class JSToPartition<E> {
           mapExprFrom(call.getArguments())
         );
     }
-    String funcName = identifierOf(target);
+    String funcName = JSUtil.identifierOf(target);
     if (funcName != null && batchFunctions.containsKey(funcName)) {
       FunctionNode func = batchFunctions.get(funcName);
       AstNode inlinedBody = func.getBody(); // TODO Warning: this will have multiple parents, is that ok?
       for (int i = func.getParams().size() - 1; i >= 0; i--) {
         inlinedBody = JSUtil.concatBlocks(
           JSUtil.genDeclare(
-            mustIdentifierOf(func.getParams().get(i)),
+            JSUtil.mustIdentifierOf(func.getParams().get(i)),
             i < call.getArguments().size()
               ? call.getArguments().get(i)
               : new KeywordLiteral() {{setType(Token.NULL);}} // TODO: use <undefined>
@@ -169,7 +165,7 @@ public class JSToPartition<E> {
       //)
       ;
     } else {
-      return noimpl();
+      return JSUtil.noimpl();
     }
   }
 
@@ -178,7 +174,7 @@ public class JSToPartition<E> {
     if (name.equals(root)) { // TODO: inner scopes
       return factory.Var(factory.RootName());
     } else if (name.equals(factory.RootName())) {
-      return noimpl(); // TODO: avoid collisions
+      return JSUtil.noimpl(); // TODO: avoid collisions
     } else {
       return factory.Var(name);
     }
@@ -199,7 +195,7 @@ public class JSToPartition<E> {
       case Token.LE:  binOp = Op.LE;  break;
       case Token.GE:  binOp = Op.GE;  break;
       default:
-        return noimpl();
+        return JSUtil.noimpl();
     }
     return factory.Prim(
       binOp,
@@ -234,16 +230,16 @@ public class JSToPartition<E> {
       case Token.ASSIGN_RSH:
       case Token.ASSIGN_SUB:
       case Token.ASSIGN_URSH:
-        return noimpl();
+        return JSUtil.noimpl();
       default:
-        return noimpl();
+        return JSUtil.noimpl();
     }
   }
 
   private E exprFromForInLoop(ForInLoop loop) {
     if (loop.isForEach()) {
       return factory.Loop(
-        mustIdentifierOf(loop.getIterator()),
+        JSUtil.mustIdentifierOf(loop.getIterator()),
         exprFrom(loop.getIteratedObject()),
         exprFrom(loop.getBody())
       );
@@ -261,16 +257,16 @@ public class JSToPartition<E> {
       for (VariableInitializer init : inits) {
         E initialValue = init.getInitializer() != null
           ? exprFrom(init.getInitializer())
-          : this.<E>noimpl();
+          : JSUtil.<E>noimpl();
         result = factory.Let(
-          identifierOf(init.getTarget()),
+          JSUtil.identifierOf(init.getTarget()),
           initialValue,
           result
         );
       }
       return result;
     } else {
-      String identifier = identifierOf(decl);
+      String identifier = JSUtil.identifierOf(decl);
       if (identifier == null) {
         return exprFromOther(decl);
       } else {
@@ -293,11 +289,11 @@ public class JSToPartition<E> {
     switch (func.getParams().size()) {
       case 1:
         return factory.Fun(
-          mustIdentifierOf(func.getParams().get(0)),
+          JSUtil.mustIdentifierOf(func.getParams().get(0)),
           exprFrom(func.getBody())
         );
       default:
-        return noimpl();
+        return JSUtil.noimpl();
     }
   }
 
@@ -309,36 +305,6 @@ public class JSToPartition<E> {
   }
 
   private E exprFromOther(AstNode node) {
-    return noimpl();
-  }
-
-  private String identifierOf(AstNode node) {
-    switch (node.getType()) {
-      case Token.NAME:
-        return ((Name)node).getIdentifier();
-      case Token.VAR:
-        VariableDeclaration decl = (VariableDeclaration)node;
-        List<VariableInitializer> inits = decl.getVariables();
-        if (inits.size() == 1) {
-          VariableInitializer init = inits.get(0);
-          if (init.getInitializer() == null && !init.isDestructuring()) {
-            return identifierOf(init.getTarget());
-          } else {
-            return null;
-          }
-        } else {
-          return null;
-        }
-      default:
-        return null;
-    }
-  }
-
-  private String mustIdentifierOf(AstNode node) {
-    String identifier = identifierOf(node);
-    if (identifier == null) {
-      return noimpl();
-    }
-    return identifier;
+    return JSUtil.noimpl();
   }
 }
