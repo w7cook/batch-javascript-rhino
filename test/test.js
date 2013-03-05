@@ -16,7 +16,7 @@ window.onload = (function(old_onload) {
       //}
       //root.tryItOn(set);
 
-batch function f(x) {
+batch function f(remote x) {
   console.log(x.foo(XX.get()));
 }
 

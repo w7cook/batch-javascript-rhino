@@ -232,7 +232,9 @@ public class Token
 
         BATCH          = 164,
         BATCH_FUNCTION = 165,
-        BATCH_INLINE   = 166;
+        BATCH_INLINE   = 166,
+        BATCH_REMOTE   = 167,
+        BATCH_LOCAL    = 168;
 
     /**
      * Returns a name for the token.  If Rhino is compiled with certain
@@ -420,6 +422,8 @@ public class Token
           case BATCH:           return "BATCH";
           case BATCH_FUNCTION:  return "BATCH_FUNCTION";
           case BATCH_INLINE:    return "BATCH_INLINE";
+          case BATCH_REMOTE:    return "BATCH_REMOTE";
+          case BATCH_LOCAL:     return "BATCH_LOCAL";
         }
 
         // Token without name
@@ -467,6 +471,8 @@ public class Token
             case Token.THROW:      return "throw";
             case Token.TRY:        return "try";
             case Token.BATCH:      return "batch";
+            case Token.BATCH_REMOTE: return "remote";
+            case Token.BATCH_LOCAL:  return "local";
             default:               return null;
         }
     }

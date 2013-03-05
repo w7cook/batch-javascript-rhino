@@ -15,12 +15,12 @@ import java.util.Map;
 public class JSToPartition<E> {
   private PartitionFactory<E> factory;
   private String root;
-  private Map<String, FunctionNode> batchFunctions;
+  private Map<String, DynamicCallInfo> batchFunctions;
 
   public JSToPartition(
       PartitionFactory<E> factory,
       String root,
-      Map<String, FunctionNode> batchFunctions) {
+      Map<String, DynamicCallInfo> batchFunctions) {
     this.factory = factory;
     this.root = root;
     this.batchFunctions = batchFunctions;
@@ -157,8 +157,7 @@ public class JSToPartition<E> {
               funcName,
               mapExprFrom(call.getArguments())
             ),
-            // if function has no postLocal body, then return = Place.REMOTE
-            new DynamicCallInfo(Place.LOCAL, new ArrayList<Place>() {{ add(Place.REMOTE); }})
+            batchFunctions.get(funcName)
           );
         } else {
           if (funcName != null) {

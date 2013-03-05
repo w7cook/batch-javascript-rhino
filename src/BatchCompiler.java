@@ -56,7 +56,7 @@ public class BatchCompiler implements NodeVisitor {
   private List<TargetBatch<BatchLoop>> batchLoops = new ArrayList<>();
   private List<TargetBatch<BatchFunction>> batchFunctionNodes =
     new ArrayList<>();
-  private Map<String, FunctionNode> batchFunctionsMap = new HashMap<>();
+  private Map<String, DynamicCallInfo> batchFunctionsMap = new HashMap<>();
 
   public boolean visit(AstNode node) {
     if (node instanceof BatchLoop) {
@@ -88,16 +88,23 @@ public class BatchCompiler implements NodeVisitor {
       if (func.getName().equals("")) {
         throw new Error("Batch functions must be given a name");
       }
-        // TODO: put below in JSUtil.getParamPlaces()
-        //if (!(param instanceof BatchParam)) {
-        //  throw new Error(
-        //    "All batch function parameters must be marked as either remote "
-        //    + "or local"
-        //  );
-        //}
+
+      List<Place> argPlaces = new ArrayList<Place>();
+      for (AstNode param : func.getParams()) {
+        if (!(param instanceof BatchParam)) {
+          throw new Error(
+            "All batch function parameters must be marked as either remote "
+            + "or local"
+          );
+        }
+        argPlaces.add(toPlace(((BatchParam)param).getPlace()));
+      }
       batchFunctionsMap.put(
         func.getName(),
-        func
+        // TODO: if function has no postLocal body, then return = Place.REMOTE
+        //       unfortunately, don't have that info at this point
+        //       (for calling batch functions within preceding batch functions)
+        new DynamicCallInfo(Place.LOCAL, argPlaces)
       );
     }
 
@@ -110,16 +117,11 @@ public class BatchCompiler implements NodeVisitor {
           .exprFrom(func.getBody());
       Environment env = new Environment(CodeModel.factory);
       for (AstNode astParam : func.getParams()) {
-        //BatchParam param = (BatchParam)astParam;
-        //env = env.extend(
-        //  JSUtil.mustIdentifierOf(param.getParameter()),
-        //  null,
-        //  param.getPlace()
-        //);
+        BatchParam param = (BatchParam)astParam;
         env = env.extend(
-          JSUtil.mustIdentifierOf(astParam),
+          JSUtil.mustIdentifierOf(param.getParameter()),
           null,
-          Place.REMOTE
+          toPlace(param.getPlace())
         );
       }
       History history = origExpr.partition(Place.MOBILE, env);
@@ -166,9 +168,8 @@ public class BatchCompiler implements NodeVisitor {
         addParam(JSUtil.genName("s$"));
         addParam(JSUtil.genName("f$"));
         for (AstNode astParam : _func.getParams()) {
-          //BatchParam param = (BatchParam)astParam;
-          //String paramName = JSUtil.mustIdentifierOf(param.getParameter());
-          String paramName = JSUtil.mustIdentifierOf(astParam);
+          BatchParam param = (BatchParam)astParam;
+          String paramName = JSUtil.mustIdentifierOf(param.getParameter());
           addParam(JSUtil.genName(paramName));
           partialScript = _sc.Let(
             paramName,
@@ -195,7 +196,17 @@ public class BatchCompiler implements NodeVisitor {
       }};
 
       batchFunc.compiled = JSUtil.concatBlocks(
-        func,
+        new FunctionNode() {{
+          setFunctionName(_func.getFunctionName());
+          for (AstNode param : _func.getParams()) {
+            if (param instanceof BatchParam) {
+              addParam(((BatchParam)param).getParameter());
+            } else {
+              addParam(param);
+            }
+          }
+          setBody(_func.getBody());
+        }},
         remoteFunc,
         postLocalFunc
       );
@@ -320,6 +331,16 @@ public class BatchCompiler implements NodeVisitor {
     ) {
       return x.original.getAbsolutePosition()
            - y.original.getAbsolutePosition();
+    }
+  }
+
+  private static Place toPlace(String placeName) {
+    switch (placeName) {
+      case "REMOTE": return Place.REMOTE;
+      case "LOCAL": return Place.LOCAL;
+      case "MOBILE": return Place.MOBILE;
+      case "UNKNOWN": return Place.UNKNOWN;
+      default: throw new Error("Invalid place: "+placeName);
     }
   }
 }

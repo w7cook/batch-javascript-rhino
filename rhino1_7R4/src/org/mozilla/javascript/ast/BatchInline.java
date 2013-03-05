@@ -12,9 +12,7 @@ public class BatchInline extends AstNode {
 
   public BatchInline(int pos, Name func) {
     super(pos);
-    funcNameToInline = func;
-    setLength(func.getPosition() + func.getLength() - pos);
-    func.setParent(this);
+    setFunctionName(func);
   }
 
   public Name getFunctionName() {
@@ -23,6 +21,8 @@ public class BatchInline extends AstNode {
 
   public void setFunctionName(Name func) {
     funcNameToInline = func;
+    setLength(func.getPosition() + func.getLength() - getPosition());
+    func.setParent(this);
   }
 
   @Override

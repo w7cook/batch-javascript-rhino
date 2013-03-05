@@ -697,8 +697,20 @@ public class Parser
                 defineSymbol(Token.LP, pname, false);
                 destructuring.put(pname, expr);
             } else {
+                String place = null;
+                peekToken();
+                int placePos = ts.tokenBeg;
+                if (matchToken(Token.BATCH_REMOTE)) {
+                  place = "REMOTE";
+                } else if (matchToken(Token.BATCH_LOCAL)) {
+                  place = "LOCAL";
+                }
                 if (mustMatchToken(Token.NAME, "msg.no.parm")) {
-                    fnNode.addParam(createNameNode());
+                    AstNode param = createNameNode();
+                    if (place != null) {
+                      param = new BatchParam(placePos, place, param);
+                    }
+                    fnNode.addParam(param);
                     String paramName = ts.getString();
                     defineSymbol(Token.LP, paramName);
                     if (this.inUseStrictDirective) {

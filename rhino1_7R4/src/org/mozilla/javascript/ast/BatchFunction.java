@@ -12,9 +12,7 @@ public class BatchFunction extends AstNode {
 
   public BatchFunction(int pos, FunctionNode func) {
     super(pos);
-    functionNode = func;
-    setLength(func.getPosition() + func.getLength() - pos);
-    func.setParent(this);
+    setFunctionNode(func);
   }
 
   public FunctionNode getFunctionNode() {
@@ -23,6 +21,8 @@ public class BatchFunction extends AstNode {
 
   public void setFunctionNode(FunctionNode func) {
     functionNode = func;
+    setLength(func.getPosition() + func.getLength() - getPosition());
+    func.setParent(this);
   }
 
   @Override

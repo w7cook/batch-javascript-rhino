@@ -85,6 +85,8 @@ class TokenStream
 // The following assumes that Token.EOF == 0
         final int
             Id_batch         = Token.BATCH,
+            Id_batch_remote  = Token.BATCH_REMOTE,
+            Id_batch_local   = Token.BATCH_LOCAL,
             Id_break         = Token.BREAK,
             Id_case          = Token.CASE,
             Id_continue      = Token.CONTINUE,
@@ -209,12 +211,14 @@ class TokenStream
                     if (c=='b') { X="batch";id=Id_batch; }
                     else if (c=='c') { X="catch";id=Id_catch; }
                     break L;
+                case 'c': X="local";id=Id_batch_local; break L;
                 } break L;
             case 6: switch (s.charAt(1)) {
                 case 'a': X="native";id=Id_native; break L;
-                case 'e': c=s.charAt(0);
-                    if (c=='d') { X="delete";id=Id_delete; }
-                    else if (c=='r') { X="return";id=Id_return; }
+                case 'e': c=s.charAt(2);
+                    if (c=='l') { X="delete";id=Id_delete; }
+                    else if (c=='t') { X="return";id=Id_return; }
+                    else if (c=='m') { X="remote";id=Id_batch_remote; }
                     break L;
                 case 'h': X="throws";id=Id_throws; break L;
                 case 'm': X="import";id=Id_import; break L;
