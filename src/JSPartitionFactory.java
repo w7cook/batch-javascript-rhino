@@ -182,14 +182,10 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
 
   @Override
   public Generator Loop(
-      final String _var,
+      String var,
       Generator collectionGen,
-      final Generator _bodyGen) {
-    return collectionGen.Bind(new Function<AstNode, Generator>() {
-      public Generator call(AstNode collection) {
-        return new LoopGenerator(_var, collection, _bodyGen);
-      }
-    });
+      Generator bodyGen) {
+    return new LoopGenerator(var, bodyGen);
   }
 
   @Override

@@ -5,21 +5,18 @@ import java.util.ArrayList;
 public class LoopGenerator extends AsyncJSGenerator {
 
   private final String var;
-  private final AstNode collection;
   private final Generator bodyGen;
 
-  public LoopGenerator(String var, AstNode collection, Generator bodyGen) {
-    this(var, collection, bodyGen, null);
+  public LoopGenerator(String var, Generator bodyGen) {
+    this(var, bodyGen, null);
   }
 
   public LoopGenerator(
       String var,
-      AstNode collection,
       Generator bodyGen,
       Function<AstNode, Generator> callback) {
     super(callback);
     this.var = var;
-    this.collection = collection;
     this.bodyGen = bodyGen;
   }
 
@@ -72,7 +69,6 @@ public class LoopGenerator extends AsyncJSGenerator {
   public LoopGenerator cloneFor(Function<AstNode, Generator> newCallback) {
     return new LoopGenerator(
       this.var,
-      this.collection,
       this.bodyGen,
       newCallback
     );
