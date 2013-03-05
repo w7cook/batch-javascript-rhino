@@ -142,7 +142,7 @@ public class BatchCompiler implements NodeVisitor {
                 .Bind(new JSGenFunction<AstNode>() {
                   public AstNode Generate(String in, String out, final AstNode _result) {
                     return new FunctionCall() {{
-                      setTarget(JSUtil.genName("callback"));
+                      setTarget(JSUtil.genName("callback$"));
                       // TODO: pass undefined if not returning an expression
                       addArgument(_result);
                     }};
@@ -191,7 +191,7 @@ public class BatchCompiler implements NodeVisitor {
         ));
         // TODO: local args
         addParam(JSUtil.genName("r$"));
-        addParam(JSUtil.genName("callback"));
+        addParam(JSUtil.genName("callback$")); // TODO: avoid conflicts
         setBody(JSUtil.genBlock(_postNode));
       }};
 
