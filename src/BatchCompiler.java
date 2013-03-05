@@ -73,28 +73,137 @@ public class BatchCompiler implements NodeVisitor {
   }
 
   public Iterable<TargetBatch<? extends AstNode>> compileBatches() {
-    if (batchNodes.isEmpty()) {
-      batchNodes.addAll(compileBatchFunctions());
-      batchNodes.addAll(compileBatchLoops());
-    }
+    batchNodes.clear();
+    batchNodes.addAll(compileBatchFunctions());
+    batchNodes.addAll(compileBatchLoops());
     // Guarentee order of nodes
     Collections.sort(batchNodes, new PositionComparator());
     return batchNodes;
   }
 
   private List<TargetBatch<BatchFunction>> compileBatchFunctions() {
-    if (batchFunctionsMap.isEmpty()) {
-      for (TargetBatch<BatchFunction> batchFunc: batchFunctionNodes) {
-        FunctionNode func = batchFunc.original.getFunctionNode();
-        batchFunc.compiled = func;
-        if (func.getName().equals("")) {
-          throw new Error("Batch functions must be given a name");
-        }
-        batchFunctionsMap.put(
-          func.getName(),
-          func
+    batchFunctionsMap.clear();
+    for (TargetBatch<BatchFunction> batchFunc: batchFunctionNodes) {
+      FunctionNode func = batchFunc.original.getFunctionNode();
+      if (func.getName().equals("")) {
+        throw new Error("Batch functions must be given a name");
+      }
+        // TODO: put below in JSUtil.getParamPlaces()
+        //if (!(param instanceof BatchParam)) {
+        //  throw new Error(
+        //    "All batch function parameters must be marked as either remote "
+        //    + "or local"
+        //  );
+        //}
+      batchFunctionsMap.put(
+        func.getName(),
+        func
+      );
+    }
+
+    for (TargetBatch<BatchFunction> batchFunc: batchFunctionNodes) {
+      FunctionNode func = batchFunc.original.getFunctionNode();
+
+      CodeModel.factory.allowAllTransers = true;
+      PExpr origExpr =
+        new JSToPartition<PExpr>(CodeModel.factory, null, batchFunctionsMap)
+          .exprFrom(func.getBody());
+      Environment env = new Environment(CodeModel.factory);
+      for (AstNode astParam : func.getParams()) {
+        //BatchParam param = (BatchParam)astParam;
+        //env = env.extend(
+        //  JSUtil.mustIdentifierOf(param.getParameter()),
+        //  null,
+        //  param.getPlace()
+        //);
+        env = env.extend(
+          JSUtil.mustIdentifierOf(astParam),
+          null,
+          Place.REMOTE
         );
       }
+      History history = origExpr.partition(Place.MOBILE, env);
+      AstNode preNode = null;
+      String script = null;
+      AstNode postNode = null;
+      for (Stage stage : history) {
+        switch (stage.place()) {
+          case LOCAL:
+            Generator local = stage
+              .action()
+              .runExtra(new JSPartitionFactory());
+            if (preNode == null && script == null) {
+              preNode = local.Generate(null, "s$");
+            } else {
+              postNode = local
+                .Bind(new JSGenFunction<AstNode>() {
+                  public AstNode Generate(String in, String out, final AstNode _result) {
+                    return new FunctionCall() {{
+                      setTarget(JSUtil.genName("callback"));
+                      // TODO: pass undefined if not returning an expression
+                      addArgument(_result);
+                    }};
+                  }
+                })
+                .Generate("r$", null);
+            }
+            break;
+          case REMOTE:
+            FormatPartition fp = new FormatPartition();
+            script = stage.action().runExtra(fp);
+            break;
+        }
+      }
+      final AstNode _preNode = preNode;
+      final String _script = script;
+      final AstNode _postNode = postNode;
+      final FunctionNode _func = func;
+      AstNode remoteFunc = new FunctionNode() {{
+        setFunctionName(JSUtil.genName(
+          _func.getFunctionName().getIdentifier() + "$getRemote"
+        ));
+        AstNode partialScript = JSUtil.genStringLiteral(_script);
+        addParam(JSUtil.genName("s$"));
+        for (AstNode astParam : _func.getParams()) {
+          //BatchParam param = (BatchParam)astParam;
+          //String paramName = JSUtil.mustIdentifierOf(param.getParameter());
+          String paramName = JSUtil.mustIdentifierOf(astParam);
+          addParam(JSUtil.genName(paramName));
+          partialScript = JSUtil.genInfix(
+            Token.ADD,
+            JSUtil.genStringLiteral("var "+paramName+"="),
+            JSUtil.genName(paramName),
+            JSUtil.genStringLiteral("; "),
+            partialScript
+          );
+        }
+        final AstNode _fullScript = partialScript;
+        setBody(JSUtil.concatBlocks(
+          _preNode,
+          new ReturnStatement() {{
+            setReturnValue(JSUtil.genInfix(
+              Token.ADD,
+              JSUtil.genStringLiteral("{"),
+              _fullScript,
+              JSUtil.genStringLiteral("}")
+            ));
+          }}
+        ));
+      }};
+      AstNode postLocalFunc = new FunctionNode() {{
+        setFunctionName(JSUtil.genName(
+          _func.getFunctionName().getIdentifier() + "$postLocal"
+        ));
+        addParam(JSUtil.genName("r$"));
+        addParam(JSUtil.genName("callback"));
+        setBody(JSUtil.genBlock(_postNode));
+      }};
+
+      batchFunc.compiled = JSUtil.concatBlocks(
+        func,
+        remoteFunc,
+        postLocalFunc
+      );
     }
     return batchFunctionNodes;
   }

@@ -191,8 +191,8 @@ public class JSToPartition<E> {
 
   private E exprFromName(Name nameNode) {
     String name = nameNode.getIdentifier();
-    if (name.equals(root)) { // TODO: inner scopes
-      return factory.Var(factory.RootName());
+    if (root != null && name.equals(root)) { // TODO: inner scopes
+      return factory.Root();
     } else if (name.equals(factory.RootName())) {
       return JSUtil.noimpl(); // TODO: avoid collisions
     } else {

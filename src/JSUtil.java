@@ -90,22 +90,22 @@ public class JSUtil {
     }
   }
 
-  public static Block concatBlocks(AstNode node1, AstNode node2) {
+  public static Block concatBlocks(AstNode... nodes) {
     Block b = new Block();
-    if (!JSUtil.isEmpty(node1)) {
-      for (Node stmt : JSUtil.genBlock(node1)) {
-        b.addStatement((AstNode)stmt);
-      }
-    }
-    if (!JSUtil.isEmpty(node2)) {
-      for (Node stmt : JSUtil.genBlock(node2)) {
-        b.addStatement((AstNode)stmt);
+    for (AstNode node : nodes) {
+      if (!JSUtil.isEmpty(node)) {
+        for (Node stmt : JSUtil.genBlock(node)) {
+          b.addStatement((AstNode)stmt);
+        }
       }
     }
     return b;
   }
 
   public static boolean isEmpty(AstNode node) {
+    if (node == null) {
+      return true;
+    }
     switch (node.getType()) {
       case Token.BLOCK:
         for (Node inner : node) {
@@ -122,6 +122,24 @@ public class JSUtil {
       default:
         return false;
     }
+  }
+
+  public static InfixExpression genInfix(int type, AstNode... args) {
+    InfixExpression ie = new InfixExpression(
+      type,
+      args[0],
+      args[1],
+      0
+    );
+    for (int i=2; i<args.length; i++) {
+      ie = new InfixExpression(
+        type,
+        ie,
+        args[i],
+        0
+      );
+    }
+    return ie;
   }
 
   public static String identifierOf(AstNode node) {
