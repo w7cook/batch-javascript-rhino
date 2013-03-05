@@ -1,6 +1,12 @@
 package org.mozilla.javascript.ast;
 
+import org.mozilla.javascript.Token;
+
 public class BatchFunction extends AstNode {
+
+  {
+    type = Token.BATCH_FUNCTION;
+  }
 
   private FunctionNode functionNode;
 
@@ -28,6 +34,6 @@ public class BatchFunction extends AstNode {
 
   @Override
   public String toSource(int depth) {
-    return makeIndent(depth) + "batch\n" + functionNode.toSource(depth);
+    return makeIndent(depth) + "batch " + functionNode.toSource(0);
   }
 }

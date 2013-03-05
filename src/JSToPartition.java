@@ -87,6 +87,11 @@ public class JSToPartition<E> {
         return exprFromReturnStatement((ReturnStatement)node);
       case Token.EMPTY:
         return factory.Skip();
+      case Token.BATCH_INLINE:
+        throw new Error(
+          "Inlined batch functions must be called: <batch "
+          + ((BatchInline)node).getFunctionName().toSource() + ">"
+        );
       default:
         System.err.println("INCOMPLETE: "+Token.typeToName(node.getType())+" "+node.getClass().getName());
         return JSUtil.noimpl();
@@ -141,31 +146,46 @@ public class JSToPartition<E> {
           propGet.getProperty().getIdentifier(),
           mapExprFrom(call.getArguments())
         );
-    }
-    String funcName = JSUtil.identifierOf(target);
-    if (funcName != null && batchFunctions.containsKey(funcName)) {
-      FunctionNode func = batchFunctions.get(funcName);
-      AstNode inlinedBody = func.getBody(); // TODO Warning: this will have multiple parents, is that ok?
-      for (int i = func.getParams().size() - 1; i >= 0; i--) {
-        inlinedBody = JSUtil.concatBlocks(
-          JSUtil.genDeclare(
-            JSUtil.mustIdentifierOf(func.getParams().get(i)),
-            i < call.getArguments().size()
-              ? call.getArguments().get(i)
-              : new KeywordLiteral() {{setType(Token.NULL);}} // TODO: use <undefined>
-          ),
-          inlinedBody
+      case Token.BATCH_INLINE:
+        String funcName = JSUtil.identifierOf(
+          ((BatchInline)target).getFunctionName()
         );
-      }
+        if (funcName != null && batchFunctions.containsKey(funcName)) {
+          FunctionNode func = batchFunctions.get(funcName);
+          AstNode inlinedBody = func.getBody(); // TODO Warning: this will have multiple parents, is that ok?
+          for (int i = func.getParams().size() - 1; i >= 0; i--) {
+            inlinedBody = JSUtil.concatBlocks(
+              JSUtil.genDeclare(
+                JSUtil.mustIdentifierOf(func.getParams().get(i)),
+                i < call.getArguments().size()
+                  ? call.getArguments().get(i)
+                  : new KeywordLiteral() {{setType(Token.NULL);}} // TODO: use <undefined>
+              ),
+              inlinedBody
+            );
+          }
 
-      // TODO: convert local code to new scopes, so variables don't clash
-      return //factory.setExtra(
-        exprFrom(inlinedBody)//,
-        //new NewScope()
-      //)
-      ;
-    } else {
-      return JSUtil.noimpl();
+          // TODO: convert local code to new scopes, so variables don't clash
+          return //factory.setExtra(
+            exprFrom(inlinedBody)//,
+            //new NewScope()
+          //)
+          ;
+        } else {
+          if (funcName != null) {
+            throw new Error(
+              "Batch call to <" + funcName + "> does not correspond to "
+              + "a batch function of that name"
+            );
+          } else {
+            // Should not occur on ast coming from the parser
+            throw new Error(
+              "batch keyword used incorrectly"
+            );
+          }
+        }
+      default:
+        return JSUtil.noimpl();
     }
   }
 

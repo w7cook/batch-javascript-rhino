@@ -959,7 +959,7 @@ public class Parser
               return forLoop();
 
           case Token.BATCH:
-              return batchLoopOrFunction();
+              return batchRoot();
 
           case Token.TRY:
               return tryStatement();
@@ -1331,22 +1331,43 @@ public class Parser
         return pn;
     }
 
-    private AstNode batchLoopOrFunction()
+    private AstNode batchRoot()
         throws IOException
     {
         if (currentToken != Token.BATCH) codeBug();
         consumeToken();
         int batchPos = ts.tokenBeg, lineno = ts.lineno;
         if (matchToken(Token.FUNCTION)) {
-          BatchFunction bf = new BatchFunction(
-            batchPos,
-            function(FunctionNode.FUNCTION_EXPRESSION_STATEMENT)
-          );
-          bf.setLineno(lineno);
-          return bf;
-        } else {
+          return batchFunction(batchPos, lineno);
+        } else if (peekToken() == Token.LP) {
           return batchLoop(batchPos, lineno);
+        } else {
+          return batchInline(batchPos, lineno);
         }
+    }
+
+    private BatchFunction batchFunction(int batchPos, int lineno)
+        throws IOException
+    {
+      BatchFunction bf = new BatchFunction(
+        batchPos,
+        function(FunctionNode.FUNCTION_EXPRESSION_STATEMENT)
+      );
+      bf.setLineno(lineno);
+      return bf;
+    }
+
+    private AstNode batchInline(int batchPos, int lineno)
+        throws IOException
+    {
+      peekToken();
+      BatchInline bi = new BatchInline(
+        batchPos,
+        createNameNode()
+      );
+      bi.setLineno(lineno);
+      consumeToken();
+      return memberExprTail(true, bi);
     }
 
     private Loop batchLoop(int batchPos, int lineno)
@@ -2379,6 +2400,11 @@ public class Parser
           case Token.ERROR:
               consumeToken();
               return makeErrorNode();
+
+          case Token.BATCH:
+              int batchPos = ts.tokenBeg;
+              consumeToken();
+              return batchInline(batchPos, line);
 
           case Token.LT:
               // XML stream encountered in expression.

@@ -230,7 +230,9 @@ public class Token
         GENEXPR        = 162,
         LAST_TOKEN     = 163,
 
-        BATCH          = 164;
+        BATCH          = 164,
+        BATCH_FUNCTION = 165,
+        BATCH_INLINE   = 166;
 
     /**
      * Returns a name for the token.  If Rhino is compiled with certain
@@ -416,6 +418,8 @@ public class Token
           case COMMENT:         return "COMMENT";
           case GENEXPR:         return "GENEXPR";
           case BATCH:           return "BATCH";
+          case BATCH_FUNCTION:  return "BATCH_FUNCTION";
+          case BATCH_INLINE:    return "BATCH_INLINE";
         }
 
         // Token without name

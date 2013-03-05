@@ -40,13 +40,13 @@ window.onload = (function(old_onload) {
       );
       page.putText("Directory: " + root.getDir().getName());
       for each (var file in root.getDir().listFiles()) {
-        page.putText(markedNameBySize(file));
+        page.putText(batch markedNameBySize(file));
         if (file.isDirectory()) {
           for each (var inner in file.listFiles()) {
-            page.putText("-" + markedNameBySize(inner));
+            page.putText("-" + batch markedNameBySize(inner));
             if (inner.isDirectory()) {
               for each (var inner2 in inner.listFiles()) {
-                page.putText("--" + markedNameBySize(inner2));
+                page.putText("--" + batch markedNameBySize(inner2));
               }
             }
           }
