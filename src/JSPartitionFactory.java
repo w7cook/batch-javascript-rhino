@@ -243,13 +243,13 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
   @Override
   public Generator DynamicCall(
       Generator target,
-      String method,
-      List<Generator> args) {
-    return new Generator() {
-      public AstNode Generate(String in, String out) {
-        return JSUtil.noimpl();
+      final String _method,
+      List<Generator> argGens) {
+    return Monad.SequenceBind(argGens, new Function<List<AstNode>, Generator>() {
+      public Generator call(List<AstNode> args) {
+        return new DynamicCallGenerator(_method, args);
       }
-    };
+    });
   }
 
   @Override

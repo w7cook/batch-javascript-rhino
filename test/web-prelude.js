@@ -1,244 +1,301 @@
 var __BATCH_SERVICE__;
 
-/**
- * Incrementally builds object as subsequent portions of JSON is given.
- * NOTE: assumes numbers are not split across multiple append calls
- *
- * onchild is called when starting to parse an
- *   element of an array or value of an object's property
- *
- * onparse is called when finished parsing this value.
- *
- * append returns the leftover string that is not consumed.
- *
- */
-function JSONStream() {
-  this.onparse = function(value) {};
-  this.onchild = function(key, child) {};
-  this.curr_child = undefined;
-  this.data = undefined;
-  this.children = [];
-  this.initData = function(data) {};
-}
-JSONStream.prototype = {
-  append: function(next_part) {
-    "use strict";
-    if (this.incomplete_part) {
-      next_part = this.incomplete_part + next_part;
-      this.incomplete_part = '';
-    }
-    var prev;
-    do {
-      if (this.finished) {
-        return next_part;
-      }
-      prev = next_part;
-      (
-           (next_part = this.parseStartObject(next_part))
-        && (next_part = this.parseKey(next_part))
-        && (next_part = this.parseValue(next_part))
-        && (next_part = this.parseStartArray(next_part))
-        && (next_part = this.parseArrayElement(next_part))
-        && !this.finished && (next_part = this.parseEndObject(next_part))
-        && !this.finished && (next_part = this.parseEndArray(next_part))
-
-        && !this.started
-
-        && !this.finished && (next_part = this.parseTrue(next_part))
-        && !this.finished && (next_part = this.parseFalse(next_part))
-        && !this.finished && (next_part = this.parseNull(next_part))
-        && !this.finished && (next_part = this.parseString(next_part))
-        && !this.finished && (next_part = this.parseFloat(next_part))
-      );
-      if (this.finished) {
-        this.onparse(this.key_path, this.data);
-      }
-    } while (next_part !== prev);
-    if (!this.finished) {
-      this.incomplete_part = next_part;
-      return '';
-    } else {
-      return next_part;
-    }
-  },
-
-  parseStartObject: function(next_part) {
-    var match;
-    if (!this.started
-        && (match = next_part.match(/^\s*{(.*)$/))) {
-      this.started = 'object';
-      this.data = {};
-      this.initData(this.data);
-      return match[1];
-    }
-    return next_part;
-  },
-
-  parseKey: function(next_part) {
-    var match;
-    if (this.started === 'object'
-        && !this.key
-        && (match = next_part.match(/^\s*"((\\"|[^"])*[^\\])"\s*:(.*)$/))) {
-      this.key = match[1];
-      return match[3];
-    }
-    return next_part;
-  },
-
-  parseValue: function(next_part) {
-    var match;
-    if (this.key) {
-      if (!this.curr_child) {
-        this.curr_child = new JSONStream();
-        this.curr_child.initData = (function(key, data) {
-          this.data[key] = data;
-        }).bind(this, this.key);
-        this.children[this.key] = this.curr_child;
-        this.onchild(this.key, this.curr_child);
-      }
-      if (!this.curr_child.finished) {
-        next_part = this.curr_child.append(next_part);
-      }
-      if (this.curr_child.finished
-          && (match = next_part.match(/^\s*(,|})(.*)$/))) {
-        this.curr_child = undefined;
-        this.key = undefined;
-        if (match[1] === '}') {
-          return this.parseEndObject(next_part);
-        }
-        return match[2];
-      }
-    }
-    return next_part;
-  },
-
-  parseEndObject: function(next_part) {
-    var match;
-    if (this.started === 'object'
-        && !this.key
-        && (match = next_part.match(/^\s*}(.*)$/))) {
-      this.started = false;
-      this.finished = true;
-      return match[1];
-    }
-    return next_part;
-  },
-
-  parseStartArray: function(next_part) {
-    var match;
-    if (!this.started
-        && (match = next_part.match(/^\s*\[(.*)$/))) {
-      this.started = 'array';
-      this.index = 0;
-      this.data = [];
-      this.initData(this.data);
-      return match[1];
-    }
-    return next_part;
-  },
-
-  parseArrayElement: function(next_part) {
-    var match;
-    if (this.started === 'array') {
-      if (!this.curr_child && !next_part.match(/^\s*]$/)) {
-        // started child
-        this.curr_child = new JSONStream();
-        this.curr_child.initData = (function(index, data) {
-          this.data[index] = data;
-        }).bind(this, this.index);
-        this.children[this.index] = this.curr_child;
-        this.onchild(this.index, this.curr_child);
-      }
-      if (this.curr_child) {
-        if (!this.curr_child.finished) {
-          next_part = this.curr_child.append(next_part);
-        }
-        if (this.curr_child.finished
-            && (match = next_part.match(/^\s*(,|])(.*)$/))) {
-          this.curr_child = undefined;
-          this.index++;
-          if (match[1] === ']') {
-            return this.parseEndArray(next_part);
-          }
-          return match[2];
-        }
-      }
-    }
-    return next_part;
-  },
-
-  parseEndArray: function(next_part) {
-    var match;
-    if (this.started === 'array'
-        && (match = next_part.match(/^\s*](.*)$/))) {
-      this.started = false;
-      this.finished = true;
-      return match[1];
-    }
-    return next_part;
-  },
-
-  parseTrue: function(next_part) {
-    var match = next_part.match(/^\s*true(.*)$/);
-    if (match) {
-      this.data = true;
-      this.initData(this.data);
-      this.finished = true;
-      return match[1];
-    }
-    return next_part;
-  },
-
-  parseFalse: function(next_part) {
-    var match = next_part.match(/^\s*false(.*)$/);
-    if (match) {
-      this.data = false;
-      this.initData(this.data);
-      this.finished = true;
-      return match[1];
-    }
-    return next_part;
-  },
-
-  parseNull: function(next_part) {
-    var match = next_part.match(/^\s*null(.*)$/);
-    if (match) {
-      this.data = null;
-      this.initData(this.data);
-      this.finished = true;
-      return match[1];
-    }
-    return next_part;
-  },
-
-  parseString: function(next_part) {
-    var match = next_part.match(/^\s*("(\\"|[^"])*[^\\]")(.*)$/);
-    if (match) {
-      this.data = JSON.parse(match[1]);
-      this.initData(this.data);
-      this.finished = true;
-      return match[3];
-    }
-    return next_part;
-  },
-
-  parseFloat: function(next_part) {
-    var match = next_part.match(/^\s*([-0-9][0-9.eE+-]*)(.*)$/);
-    if (match) {
-      var f = parseFloat(match[1]);
-      this.data = f;
-      this.initData(this.data);
-      this.finished = true;
-      return match[2];
-    }
-    return next_part;
-  }
-
-};
-
 window.onload = (function(old_onload) {
   "use strict";
   return function() {
+
+    /**
+     * Incrementally builds object as subsequent portions of JSON is given.
+     * NOTE: assumes numbers are not split across multiple append calls
+     *
+     * onchild is called when starting to parse an
+     *   element of an array or value of an object's property
+     *
+     * onparse is called when finished parsing this value.
+     *
+     * append returns the leftover string that is not consumed.
+     *
+     */
+    function JSONStream() {
+      this.onparse = function(value) {};
+      this.onchild = function(key, child) {};
+      this.curr_child = undefined;
+      this.data = undefined;
+      this.children = [];
+      this.initData = function(data) {};
+    }
+    JSONStream.prototype = {
+      append: function(next_part) {
+        "use strict";
+        if (this.incomplete_part) {
+          next_part = this.incomplete_part + next_part;
+          this.incomplete_part = '';
+        }
+        var prev;
+        do {
+          if (this.finished) {
+            return next_part;
+          }
+          prev = next_part;
+          (
+               (next_part = this.parseStartObject(next_part))
+            && (next_part = this.parseKey(next_part))
+            && (next_part = this.parseValue(next_part))
+            && (next_part = this.parseStartArray(next_part))
+            && (next_part = this.parseArrayElement(next_part))
+            && !this.finished && (next_part = this.parseEndObject(next_part))
+            && !this.finished && (next_part = this.parseEndArray(next_part))
+
+            && !this.started
+
+            && !this.finished && (next_part = this.parseTrue(next_part))
+            && !this.finished && (next_part = this.parseFalse(next_part))
+            && !this.finished && (next_part = this.parseNull(next_part))
+            && !this.finished && (next_part = this.parseString(next_part))
+            && !this.finished && (next_part = this.parseFloat(next_part))
+          );
+          if (this.finished) {
+            this.onparse(this.key_path, this.data);
+          }
+        } while (next_part !== prev);
+        if (!this.finished) {
+          this.incomplete_part = next_part;
+          return '';
+        } else {
+          return next_part;
+        }
+      },
+
+      parseStartObject: function(next_part) {
+        var match;
+        if (!this.started
+            && (match = next_part.match(/^\s*{(.*)$/))) {
+          this.started = 'object';
+          this.data = {};
+          this.initData(this.data);
+          return match[1];
+        }
+        return next_part;
+      },
+
+      parseKey: function(next_part) {
+        var match;
+        if (this.started === 'object'
+            && !this.key
+            && (match = next_part.match(/^\s*"((\\"|[^"])*[^\\])"\s*:(.*)$/))) {
+          this.key = match[1];
+          return match[3];
+        }
+        return next_part;
+      },
+
+      parseValue: function(next_part) {
+        var match;
+        if (this.key) {
+          if (!this.curr_child) {
+            this.curr_child = new JSONStream();
+            this.curr_child.initData = (function(key, data) {
+              this.data[key] = data;
+            }).bind(this, this.key);
+            this.children[this.key] = this.curr_child;
+            this.onchild(this.key, this.curr_child);
+          }
+          if (!this.curr_child.finished) {
+            next_part = this.curr_child.append(next_part);
+          }
+          if (this.curr_child.finished
+              && (match = next_part.match(/^\s*(,|})(.*)$/))) {
+            this.curr_child = undefined;
+            this.key = undefined;
+            if (match[1] === '}') {
+              return this.parseEndObject(next_part);
+            }
+            return match[2];
+          }
+        }
+        return next_part;
+      },
+
+      parseEndObject: function(next_part) {
+        var match;
+        if (this.started === 'object'
+            && !this.key
+            && (match = next_part.match(/^\s*}(.*)$/))) {
+          this.started = false;
+          this.finished = true;
+          return match[1];
+        }
+        return next_part;
+      },
+
+      parseStartArray: function(next_part) {
+        var match;
+        if (!this.started
+            && (match = next_part.match(/^\s*\[(.*)$/))) {
+          this.started = 'array';
+          this.index = 0;
+          this.data = [];
+          this.initData(this.data);
+          return match[1];
+        }
+        return next_part;
+      },
+
+      parseArrayElement: function(next_part) {
+        var match;
+        if (this.started === 'array') {
+          if (!this.curr_child && !next_part.match(/^\s*]$/)) {
+            // started child
+            this.curr_child = new JSONStream();
+            this.curr_child.initData = (function(index, data) {
+              this.data[index] = data;
+            }).bind(this, this.index);
+            this.children[this.index] = this.curr_child;
+            this.onchild(this.index, this.curr_child);
+          }
+          if (this.curr_child) {
+            if (!this.curr_child.finished) {
+              next_part = this.curr_child.append(next_part);
+            }
+            if (this.curr_child.finished
+                && (match = next_part.match(/^\s*(,|])(.*)$/))) {
+              this.curr_child = undefined;
+              this.index++;
+              if (match[1] === ']') {
+                return this.parseEndArray(next_part);
+              }
+              return match[2];
+            }
+          }
+        }
+        return next_part;
+      },
+
+      parseEndArray: function(next_part) {
+        var match;
+        if (this.started === 'array'
+            && (match = next_part.match(/^\s*](.*)$/))) {
+          this.started = false;
+          this.finished = true;
+          return match[1];
+        }
+        return next_part;
+      },
+
+      parseTrue: function(next_part) {
+        var match = next_part.match(/^\s*true(.*)$/);
+        if (match) {
+          this.data = true;
+          this.initData(this.data);
+          this.finished = true;
+          return match[1];
+        }
+        return next_part;
+      },
+
+      parseFalse: function(next_part) {
+        var match = next_part.match(/^\s*false(.*)$/);
+        if (match) {
+          this.data = false;
+          this.initData(this.data);
+          this.finished = true;
+          return match[1];
+        }
+        return next_part;
+      },
+
+      parseNull: function(next_part) {
+        var match = next_part.match(/^\s*null(.*)$/);
+        if (match) {
+          this.data = null;
+          this.initData(this.data);
+          this.finished = true;
+          return match[1];
+        }
+        return next_part;
+      },
+
+      parseString: function(next_part) {
+        var match = next_part.match(/^\s*("(\\"|[^"])*[^\\]")(.*)$/);
+        if (match) {
+          this.data = JSON.parse(match[1]);
+          this.initData(this.data);
+          this.finished = true;
+          return match[3];
+        }
+        return next_part;
+      },
+
+      parseFloat: function(next_part) {
+        var match = next_part.match(/^\s*([-0-9][0-9.eE+-]*)(.*)$/);
+        if (match) {
+          var f = parseFloat(match[1]);
+          this.data = f;
+          this.initData(this.data);
+          this.finished = true;
+          return match[2];
+        }
+        return next_part;
+      }
+
+    };
+
+    function stripBraces(s) {
+      if (s.charAt(0) === "{") {
+        return s.substring(1, s.length - 1);
+      } else {
+        return s;
+      }
+    }
+
+    var unaryOps = {
+      "+": true,
+      "-": true,
+      "/": true,
+      "not": true,
+    };
+
+    var FormatFactory = {
+      Var: function(name) { return name; },
+      Data: function(data) { return JSON.stringify(data); },
+      Fun: function(varName, body) { return "{function("+varName+") "+body+"}"; },
+      Prop: function(base, field) { return base+"."+field; },
+      Assign: function(target, source) { return target+"="+source; },
+      Let: function(varName, expression, body) {
+        return "{var " + varName + "=" + expression + "; " + stripBraces(body) + "}";
+      },
+      If: function(condition, thenExp, elseExp) {
+        if (elseExp === "skip")
+          return "{if (" + condition + ") " + thenExp + "}";
+        else
+          return "{if (" + condition + ") " + thenExp + " else " + elseExp + "}";
+      },
+      Loop: function(varName, collection, body) {
+        return "{for (" + varName + " in " + collection + ") " + body + "}";
+      },
+      Call: function(target, method, args) { return target+"."+method+"("+args.join(", ")+")"; },
+      In: function(location) { return 'INPUT("'+location+'")'; },
+      Out: function(location, expression) { return 'OUTPUT("'+location+'", '+expression+')'; },
+      Prim: function(op, args) {
+        if (args.length === 0) {
+          return "skip";
+        } if (args.length === 1 && unaryOps[op]) {
+          return "(" + op + args[0] + ")";
+        } else {
+          if (op === ";") {
+            args = args.map(stripBraces);
+          }
+          var s = args.join(" "+op+" ");
+          if (op === ";") {
+            return "{"+s+"}";
+          } else {
+            return "("+s+")";
+          }
+        }
+      },
+    };
+
+    // onload actions
     if (old_onload) old_onload.apply(window, arguments);
 
     function AsyncObject(jsonStream) {
@@ -354,6 +411,9 @@ window.onload = (function(old_onload) {
     }
 
     __BATCH_SERVICE__ = {
+      getFactory: function() {
+        return FormatFactory;
+      },
       execute: function(script, data, callback) {
         var id = getNextID();
         callbacks[id] = callback;

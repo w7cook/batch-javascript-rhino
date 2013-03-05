@@ -151,26 +151,15 @@ public class JSToPartition<E> {
           ((BatchInline)target).getFunctionName()
         );
         if (funcName != null && batchFunctions.containsKey(funcName)) {
-          FunctionNode func = batchFunctions.get(funcName);
-          AstNode inlinedBody = func.getBody(); // TODO Warning: this will have multiple parents, is that ok?
-          for (int i = func.getParams().size() - 1; i >= 0; i--) {
-            inlinedBody = JSUtil.concatBlocks(
-              JSUtil.genDeclare(
-                JSUtil.mustIdentifierOf(func.getParams().get(i)),
-                i < call.getArguments().size()
-                  ? call.getArguments().get(i)
-                  : new KeywordLiteral() {{setType(Token.NULL);}} // TODO: use <undefined>
-              ),
-              inlinedBody
-            );
-          }
-
-          // TODO: convert local code to new scopes, so variables don't clash
-          return //factory.setExtra(
-            exprFrom(inlinedBody)//,
-            //new NewScope()
-          //)
-          ;
+          return factory.setExtra(
+            factory.DynamicCall(
+              factory.Var("$$global$$"), // TODO: factory.Other(null)
+              funcName,
+              mapExprFrom(call.getArguments())
+            ),
+            // if function has no postLocal body, then return = Place.REMOTE
+            new DynamicCallInfo(Place.LOCAL, new ArrayList<Place>() {{ add(Place.REMOTE); }})
+          );
         } else {
           if (funcName != null) {
             throw new Error(

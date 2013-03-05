@@ -124,8 +124,9 @@ public class BatchCompiler implements NodeVisitor {
       }
       History history = origExpr.partition(Place.MOBILE, env);
       AstNode preNode = null;
-      String script = null;
+      AstNode script = null;
       AstNode postNode = null;
+      final JSScriptConstructor _sc = new JSScriptConstructor("f$");
       for (Stage stage : history) {
         switch (stage.place()) {
           case LOCAL:
@@ -149,31 +150,29 @@ public class BatchCompiler implements NodeVisitor {
             }
             break;
           case REMOTE:
-            FormatPartition fp = new FormatPartition();
-            script = stage.action().runExtra(fp);
+            script = stage.action().runExtra(_sc);
             break;
         }
       }
       final AstNode _preNode = preNode;
-      final String _script = script;
+      final AstNode _script = script;
       final AstNode _postNode = postNode;
       final FunctionNode _func = func;
       AstNode remoteFunc = new FunctionNode() {{
         setFunctionName(JSUtil.genName(
           _func.getFunctionName().getIdentifier() + "$getRemote"
         ));
-        AstNode partialScript = JSUtil.genStringLiteral(_script);
+        AstNode partialScript = _script;
         addParam(JSUtil.genName("s$"));
+        addParam(JSUtil.genName("f$"));
         for (AstNode astParam : _func.getParams()) {
           //BatchParam param = (BatchParam)astParam;
           //String paramName = JSUtil.mustIdentifierOf(param.getParameter());
           String paramName = JSUtil.mustIdentifierOf(astParam);
           addParam(JSUtil.genName(paramName));
-          partialScript = JSUtil.genInfix(
-            Token.ADD,
-            JSUtil.genStringLiteral("var "+paramName+"="),
+          partialScript = _sc.Let(
+            paramName,
             JSUtil.genName(paramName),
-            JSUtil.genStringLiteral("; "),
             partialScript
           );
         }
@@ -181,12 +180,7 @@ public class BatchCompiler implements NodeVisitor {
         setBody(JSUtil.concatBlocks(
           _preNode,
           new ReturnStatement() {{
-            setReturnValue(JSUtil.genInfix(
-              Token.ADD,
-              JSUtil.genStringLiteral("{"),
-              _fullScript,
-              JSUtil.genStringLiteral("}")
-            ));
+            setReturnValue(_fullScript);
           }}
         ));
       }};
@@ -194,6 +188,7 @@ public class BatchCompiler implements NodeVisitor {
         setFunctionName(JSUtil.genName(
           _func.getFunctionName().getIdentifier() + "$postLocal"
         ));
+        // TODO: local args
         addParam(JSUtil.genName("r$"));
         addParam(JSUtil.genName("callback"));
         setBody(JSUtil.genBlock(_postNode));
@@ -239,6 +234,15 @@ public class BatchCompiler implements NodeVisitor {
         default:
           JSUtil.noimpl();
       }
+      loop.compiled.addChild(
+        JSUtil.genDeclare(
+          "f$",
+          JSUtil.genCall(
+            JSUtil.genName(service),
+            "getFactory"
+          )
+        )
+      );
       CodeModel.factory.allowAllTransers = true;
       PExpr origExpr =
         new JSToPartition<PExpr>(CodeModel.factory, root, batchFunctionsMap)
@@ -247,7 +251,7 @@ public class BatchCompiler implements NodeVisitor {
         .extend(CodeModel.factory.RootName(), null, Place.REMOTE);
       History history = origExpr.partition(Place.MOBILE, env);
       AstNode preNode = null;
-      String script = null;
+      AstNode script = null;
       AstNode postNode = null;
       for (Stage stage : history) {
         switch (stage.place()) {
@@ -263,7 +267,7 @@ public class BatchCompiler implements NodeVisitor {
             }
             break;
           case REMOTE:
-            script = stage.action().runExtra(new FormatPartition());
+            script = stage.action().runExtra(new JSScriptConstructor("f$"));
             break;
         }
       }
@@ -273,7 +277,7 @@ public class BatchCompiler implements NodeVisitor {
       if (script != null) {
         loop.compiled.addChild(JSUtil.genDeclare(
           "script$",
-          JSUtil.genStringLiteral(script)
+          script
         ));
         final AstNode _postNode = postNode;
         loop.compiled.addChild(new ExpressionStatement(JSUtil.genCall(

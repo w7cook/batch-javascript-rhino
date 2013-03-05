@@ -63,6 +63,24 @@ public class JSUtil {
     }};
   }
 
+  public static AstNode genCall(
+      final AstNode _target,
+      final String _method,
+      final AstNode... _args) {
+    return new FunctionCall() {{
+      setTarget(new PropertyGet(_target, genName(_method)));
+      for (AstNode arg : _args) {
+        addArgument(arg);
+      }
+    }};
+  }
+
+  public static AstNode genArray(final List<AstNode> _args) {
+    return new ArrayLiteral() {{
+      setElements(_args);
+    }};
+  }
+
   public static AstNode genStatement(AstNode node) {
     switch (node.getType()) {
       case Token.BLOCK:

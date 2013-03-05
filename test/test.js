@@ -17,12 +17,13 @@ window.onload = (function(old_onload) {
       //root.tryItOn(set);
 
 batch function f(x) {
-  console.log(x.doOn(XX.get()));
+  console.log(x.foo(XX.get()));
 }
 
 XX = {get: function() { return 1; } }
-batch (var root in remote) {
-  batch f(root);
+batch (var root in __BATCH_SERVICE__) {
+  batch f(root.bar(20));
+  console.log("hello");
 }
 
     //batch (var root in __BATCH_SERVICE__) {
