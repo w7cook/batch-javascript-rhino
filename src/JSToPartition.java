@@ -15,15 +15,15 @@ import java.util.Map;
 public class JSToPartition<E> {
   private PartitionFactory<E> factory;
   private String root;
-  private Map<String, DynamicCallInfo> batchFunctions;
+  private Map<String, DynamicCallInfo> batchFunctionsInfo;
 
   public JSToPartition(
       PartitionFactory<E> factory,
       String root,
-      Map<String, DynamicCallInfo> batchFunctions) {
+      Map<String, DynamicCallInfo> batchFunctionsInfo) {
     this.factory = factory;
     this.root = root;
-    this.batchFunctions = batchFunctions;
+    this.batchFunctionsInfo = batchFunctionsInfo;
   }
 
   public E exprFrom(AstNode node) {
@@ -150,14 +150,14 @@ public class JSToPartition<E> {
         String funcName = JSUtil.identifierOf(
           ((BatchInline)target).getFunctionName()
         );
-        if (funcName != null && batchFunctions.containsKey(funcName)) {
+        if (funcName != null && batchFunctionsInfo.containsKey(funcName)) {
           return factory.setExtra(
             factory.DynamicCall(
               factory.Var("$$global$$"), // TODO: factory.Other(null)
               funcName,
               mapExprFrom(call.getArguments())
             ),
-            batchFunctions.get(funcName)
+            batchFunctionsInfo.get(funcName)
           );
         } else {
           if (funcName != null) {

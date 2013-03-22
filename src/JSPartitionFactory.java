@@ -7,11 +7,17 @@ import batch.partition.*;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
 
   public final static String INPUT_NAME = "INPUT";
   public final static String OUTPUT_NAME = "OUTPUT";
+  private Map<String, DynamicCallInfo> batchFunctionsInfo;
+
+  public JSPartitionFactory(Map<String, DynamicCallInfo> batchFunctionsInfo) {
+    this.batchFunctionsInfo = batchFunctionsInfo;
+  }
 
   @Override
   public Generator Var(final String _name) {
@@ -247,7 +253,11 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
       List<Generator> argGens) {
     return Monad.SequenceBind(argGens, new Function<List<AstNode>, Generator>() {
       public Generator call(List<AstNode> args) {
-        return new DynamicCallGenerator(_method, args);
+        return new DynamicCallGenerator(
+          _method,
+          args,
+          batchFunctionsInfo.get(_method)
+        );
       }
     });
   }

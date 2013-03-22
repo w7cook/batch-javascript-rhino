@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -56,7 +57,7 @@ public class BatchCompiler implements NodeVisitor {
   private List<TargetBatch<BatchLoop>> batchLoops = new ArrayList<>();
   private List<TargetBatch<BatchFunction>> batchFunctionNodes =
     new ArrayList<>();
-  private Map<String, DynamicCallInfo> batchFunctionsMap = new HashMap<>();
+  private Map<String, DynamicCallInfo> batchFunctionsInfo = new HashMap<>();
 
   public boolean visit(AstNode node) {
     if (node instanceof BatchLoop) {
@@ -82,7 +83,7 @@ public class BatchCompiler implements NodeVisitor {
   }
 
   private List<TargetBatch<BatchFunction>> compileBatchFunctions() {
-    batchFunctionsMap.clear();
+    batchFunctionsInfo.clear();
     for (TargetBatch<BatchFunction> batchFunc: batchFunctionNodes) {
       FunctionNode func = batchFunc.original.getFunctionNode();
       if (func.getName().equals("")) {
@@ -99,7 +100,7 @@ public class BatchCompiler implements NodeVisitor {
         }
         argPlaces.add(toPlace(((BatchParam)param).getPlace()));
       }
-      batchFunctionsMap.put(
+      batchFunctionsInfo.put(
         func.getName(),
         // TODO: if function has no postLocal body, then return = Place.REMOTE
         //       unfortunately, don't have that info at this point
@@ -113,7 +114,7 @@ public class BatchCompiler implements NodeVisitor {
 
       CodeModel.factory.allowAllTransers = true;
       PExpr origExpr =
-        new JSToPartition<PExpr>(CodeModel.factory, null, batchFunctionsMap)
+        new JSToPartition<PExpr>(CodeModel.factory, null, batchFunctionsInfo)
           .exprFrom(func.getBody());
       Environment env = new Environment(CodeModel.factory);
       for (AstNode astParam : func.getParams()) {
@@ -134,7 +135,7 @@ public class BatchCompiler implements NodeVisitor {
           case LOCAL:
             Generator local = stage
               .action()
-              .runExtra(new JSPartitionFactory());
+              .runExtra(new JSPartitionFactory(batchFunctionsInfo));
             if (preNode == null && script == null) {
               preNode = local.Generate(null, "s$");
             } else {
@@ -189,8 +190,18 @@ public class BatchCompiler implements NodeVisitor {
         setFunctionName(JSUtil.genName(
           _func.getFunctionName().getIdentifier() + "$postLocal"
         ));
-        // TODO: local args
         addParam(JSUtil.genName("r$"));
+        // add local params
+        Iterator<AstNode> argIt = _func.getParams().iterator();
+        Iterator<Place> placeIt =
+          batchFunctionsInfo.get(_func.getName()).arguments.iterator();
+        while (argIt.hasNext()) {
+          BatchParam param = (BatchParam)argIt.next();
+          if (placeIt.next() != Place.REMOTE) {
+            String paramName = JSUtil.mustIdentifierOf(param.getParameter());
+            addParam(JSUtil.genName(paramName));
+          }
+        }
         addParam(JSUtil.genName("callback$")); // TODO: avoid conflicts
         setBody(JSUtil.genBlock(_postNode));
       }};
@@ -256,7 +267,7 @@ public class BatchCompiler implements NodeVisitor {
       );
       CodeModel.factory.allowAllTransers = true;
       PExpr origExpr =
-        new JSToPartition<PExpr>(CodeModel.factory, root, batchFunctionsMap)
+        new JSToPartition<PExpr>(CodeModel.factory, root, batchFunctionsInfo)
           .exprFrom(batch.getBody());
       Environment env = new Environment(CodeModel.factory)
         .extend(CodeModel.factory.RootName(), null, Place.REMOTE);
@@ -269,7 +280,7 @@ public class BatchCompiler implements NodeVisitor {
           case LOCAL:
             AstNode local = stage
               .action()
-              .runExtra(new JSPartitionFactory())
+              .runExtra(new JSPartitionFactory(batchFunctionsInfo))
               .Generate("r$", "s$");
             if (preNode == null && script == null) {
               preNode = local;

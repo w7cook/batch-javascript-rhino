@@ -16,13 +16,13 @@ window.onload = (function(old_onload) {
       //}
       //root.tryItOn(set);
 
-batch function f(remote x) {
-  console.log(x.foo(XX.get()));
+batch function f(remote x, remote i, local y) {
+  console.log(x.foo(i) + y + i);
 }
 
 XX = {get: function() { return 1; } }
 batch (var root in __BATCH_SERVICE__) {
-  batch f(root.bar(20));
+  batch f(root.bar(20), XX.get(), " what");
   console.log("hello");
 }
 

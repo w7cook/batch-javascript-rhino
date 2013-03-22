@@ -1,6 +1,10 @@
 import org.mozilla.javascript.ast.*;
 
+import batch.partition.DynamicCallInfo;
+import batch.partition.Place;
+
 import java.util.List;
+import java.util.Iterator;
 
 public class DynamicCallGenerator extends AsyncJSGenerator {
 
@@ -10,30 +14,44 @@ public class DynamicCallGenerator extends AsyncJSGenerator {
     return "dc$"+index;
   }
 
-  private final String method;
+  private final String function;
   private final List<AstNode> args;
+  private final DynamicCallInfo callInfo;
 
-  public DynamicCallGenerator(String method, List<AstNode> args) {
-    this(method, args, null);
+  public DynamicCallGenerator(
+      String function,
+      List<AstNode> args,
+      DynamicCallInfo callInfo) {
+    this(function, args, callInfo, null);
   }
 
   public DynamicCallGenerator(
-      String method,
+      String function,
       List<AstNode> args,
+      DynamicCallInfo callInfo,
       Function<AstNode, Generator> callback) {
     super(callback);
-    this.method = method;
+    this.function = function;
     this.args = args;
+    this.callInfo = callInfo;
   }
 
   public AstNode Generate(final String _in, final String _out) {
     final DynamicCallGenerator _dcGen = this;
     return new FunctionCall() {{
-      setTarget(JSUtil.genName(_dcGen.method+"$postLocal"));
+      setTarget(JSUtil.genName(_dcGen.function+"$postLocal"));
       addArgument(JSUtil.genName(_in));
+      // local args
+      Iterator<AstNode> argIt = args.iterator();
+      Iterator<Place> placeIt = callInfo.arguments.iterator();
+      while (argIt.hasNext() && placeIt.hasNext()) {
+        AstNode arg = argIt.next();
+        if (placeIt.next() != Place.REMOTE) {
+          addArgument(arg);
+        }
+      }
       addArgument(new FunctionNode() {{
         String param = _dcGen.genNextString();
-        // TODO: local args
         addParam(JSUtil.genName(param));
         setBody(
           _dcGen.callback != null
@@ -50,7 +68,7 @@ public class DynamicCallGenerator extends AsyncJSGenerator {
   }
 
   public DynamicCallGenerator cloneFor(Function<AstNode, Generator> newCallback) {
-    return new DynamicCallGenerator(method, args, newCallback);
+    return new DynamicCallGenerator(function, args, callInfo, newCallback);
   }
 }
 
