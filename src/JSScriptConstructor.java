@@ -1,6 +1,5 @@
 import batch.Op;
-import batch.partition.PartitionFactory;
-import batch.util.BatchFactoryHelper;
+import batch.partition.PartitionFactoryHelper;
 
 import org.mozilla.javascript.ast.AstNode;
 import org.mozilla.javascript.ast.FunctionCall;
@@ -10,11 +9,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-class JSScriptConstructor implements PartitionFactory<AstNode> {
+class JSScriptConstructor extends PartitionFactoryHelper<AstNode> {
 
   private String factoryName;
 
   private AstNode factory() {
+    // Default factory when called during initialization of BatchFactoryHelper
+    if (factoryName == null)
+      factoryName = "";
     return JSUtil.genName(factoryName);
   }
 
@@ -60,13 +62,16 @@ class JSScriptConstructor implements PartitionFactory<AstNode> {
 
   @Override
   public AstNode Prim(Op op, List<AstNode> args) {
-    return JSUtil.genCall(
-      factory(),
-      "Prim",
-      // TODO: maybe create JS representation
-      JSUtil.genStringLiteral(op.getOpSymbol()),
-      JSUtil.genArray(args)
-    );
+    if (args.size() == 1 && !op.unary())
+      return args.get(0);
+    else
+      return JSUtil.genCall(
+        factory(),
+        "Prim",
+        // TODO: maybe create JS representation
+        JSUtil.genStringLiteral(op.getOpSymbol()),
+        JSUtil.genArray(args)
+      );
   }
 
   @Override
@@ -184,46 +189,16 @@ class JSScriptConstructor implements PartitionFactory<AstNode> {
     return exp;
   }
 
-  // Helpers
-	@SuppressWarnings("unchecked")
+  // Redefines Root and Skip so that creates new nodes instead of reusing them
+  // (BatchFactoryHelper reuses Root and Skip return values.)
   @Override
-	public AstNode Prim(Op op, Object... args) {
-		List<AstNode> argList = new ArrayList<AstNode>();
-		for (Object arg : args)
-			argList.add((AstNode)arg);
-		return Prim(op, argList);
-	}
-
-	@SuppressWarnings("unchecked")
-  @Override
-	public AstNode Call(AstNode target, String method, Object... args) {
-		List<AstNode> argList = new ArrayList<AstNode>();
-		for (Object arg : args)
-			argList.add((AstNode)arg);
-		return Call(target, method, argList);
-	}
-
-	@Override
-	public String RootName() {
-		return BatchFactoryHelper.ROOT_VAR_NAME;
-	}
-
-	@Override
-	public AstNode Root() {
-		return Var(RootName());
-	}
+  public AstNode Root() {
+    return Var(RootName());
+  }
 
   @Override
   public AstNode Skip() {
-    return Prim(Op.SEQ, Collections.emptyList());
+    return Prim(Op.SEQ, Collections.<AstNode>emptyList());
   }
-
-	@Override
-	public AstNode Other(Object external, AstNode... subs) {
-		List<AstNode> subList = new ArrayList<AstNode>();
-		for (AstNode e : subs)
-			subList.add(e);
-		return Other(external, subList);
-	}
 }
 

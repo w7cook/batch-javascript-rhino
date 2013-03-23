@@ -309,7 +309,8 @@ public class JSToPartition<E> {
     // Currently assuming inside function definition within batch block
     // TODO: make other if not in function definition within batch block
     // TODO: no return value
-    return factory.setExtra(exprFrom(ret.getReturnValue()), new MarkedReturn());
+    return factory.setExtra(exprFrom(ret.getReturnValue()), Token.RETURN);
+    //return factory.Other(Token.RETURN, exprFrom(ret.getReturnValue()));
   }
 
   private E exprFromOther(AstNode node) {

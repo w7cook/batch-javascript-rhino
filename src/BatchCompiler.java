@@ -157,6 +157,9 @@ public class BatchCompiler implements NodeVisitor {
             break;
         }
       }
+      if (postNode == null) {
+        batchFunctionsInfo.get(func.getName()).returns = Place.REMOTE;
+      }
       final AstNode _preNode = preNode;
       final AstNode _script = script;
       final AstNode _postNode = postNode;
@@ -203,7 +206,11 @@ public class BatchCompiler implements NodeVisitor {
           }
         }
         addParam(JSUtil.genName("callback$")); // TODO: avoid conflicts
-        setBody(JSUtil.genBlock(_postNode));
+        setBody(
+          _postNode != null
+            ? JSUtil.genBlock(_postNode)
+            : JSUtil.concatBlocks()
+        );
       }};
 
       batchFunc.compiled = JSUtil.concatBlocks(

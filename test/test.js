@@ -16,13 +16,30 @@ window.onload = (function(old_onload) {
       //}
       //root.tryItOn(set);
 
-batch function f(remote x, remote i, local y) {
-  console.log(x.foo(i) + y + i);
+//batch function f(remote x, remote i, local y) {
+//  console.log(x.foo(i) + y + i);
+//}
+batch function f(remote x, remote i) {
+  var r = 0;
+  if (x.foo(i) > 10) {
+    r= XX.get();
+  } else {
+    r= XX.bomb();
+  }
+  return r;
 }
+//batch function f(remote x, remote i, local y) {
+//  if (x.foo(i) > 10) {
+//    return y;
+//  } else {
+//    return "BAD";
+//  }
+//}
 
 XX = {get: function() { return 1; } }
 batch (var root in __BATCH_SERVICE__) {
-  batch f(root.bar(20), XX.get(), " what");
+  console.log(batch f(root.bar(10),XX.get()).test());
+  //batch f(root.bar(20), XX.get(), "yay");
   console.log("hello");
 }
 
