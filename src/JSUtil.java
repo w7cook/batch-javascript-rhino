@@ -75,6 +75,17 @@ public class JSUtil {
     }};
   }
 
+  public static AstNode genCall(
+      final AstNode _function,
+      final AstNode... _args) {
+    return new FunctionCall() {{
+      setTarget(_function);
+      for (AstNode arg : _args) {
+        addArgument(arg);
+      }
+    }};
+  }
+
   public static AstNode genArray(final List<AstNode> _args) {
     return new ArrayLiteral() {{
       setElements(_args);
@@ -158,6 +169,18 @@ public class JSUtil {
       );
     }
     return ie;
+  }
+
+  public static KeywordLiteral genTrue() {
+    return new KeywordLiteral().setType(Token.TRUE);
+  }
+
+  public static KeywordLiteral genFalse() {
+    return new KeywordLiteral().setType(Token.FALSE);
+  }
+
+  public static Name genUndefined() {
+    return JSUtil.genName("undefined");
   }
 
   public static String identifierOf(AstNode node) {

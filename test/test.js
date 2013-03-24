@@ -19,14 +19,13 @@ window.onload = (function(old_onload) {
 //batch function f(remote x, remote i, local y) {
 //  console.log(x.foo(i) + y + i);
 //}
-batch function f(remote x, remote i) {
-  var r = 0;
-  if (x.foo(i) > 10) {
-    r= XX.get();
-  } else {
-    r= XX.bomb();
+batch function getSomeBigFileName(remote dir, remote i) {
+  for each (var file in dir.listFiles()) {
+    if (file.length() > i) {
+      return file.getName();
+    }
   }
-  return r;
+  return "<NONE>";
 }
 //batch function f(remote x, remote i, local y) {
 //  if (x.foo(i) > 10) {
@@ -36,11 +35,14 @@ batch function f(remote x, remote i) {
 //  }
 //}
 
-XX = {get: function() { return 1; } }
+XX = {bigSize: function() { return 1000; } }
 batch (var root in __BATCH_SERVICE__) {
-  console.log(batch f(root.bar(10),XX.get()).test());
+  page.putText(
+    "Following file is big: "
+    + batch getSomeBigFileName(root.getDir(),XX.bigSize())
+  );
   //batch f(root.bar(20), XX.get(), "yay");
-  console.log("hello");
+  page.putText("hello");
 }
 
     //batch (var root in __BATCH_SERVICE__) {

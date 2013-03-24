@@ -8,7 +8,7 @@ public abstract class AsyncJSGenerator extends Generator {
   }
 
   public abstract AsyncJSGenerator cloneFor(
-    Function<AstNode, Generator> callback
+    Function<AstNode, Generator> newCallback
   );
 
   public AsyncJSGenerator Bind(

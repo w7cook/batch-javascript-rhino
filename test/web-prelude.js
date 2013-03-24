@@ -314,18 +314,21 @@ window.onload = (function(old_onload) {
           this.startLoop = (function(loop) {
             this.startLoop = undefined;
             var i = 0;
-            this.stepLoop = (function() {
-              if (i < loop.children.length) {
+            this.stepLoop = (function(isReturning, value) {
+              if (isReturning) {
+                this.stepLoop = undefined;
+                post_cb(isReturning, value);
+              } else if (i < loop.children.length) {
                 step_cb(
                   new AsyncObject(loop.children[i++]).returnObject,
                   this.stepLoop
                 );
               } else if (loop.finished) {
                 this.stepLoop = undefined;
-                post_cb();
+                post_cb(false, undefined);
               }
             }).bind(this);
-            return this.stepLoop();
+            return this.stepLoop(false, undefined);
           }).bind(this);
           this.tryCallback();
         }).bind(this),

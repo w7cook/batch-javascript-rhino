@@ -23,7 +23,10 @@ public class InGenerator extends AsyncJSGenerator {
     this.location = location;
   }
 
-  public AstNode Generate(final String _in, final String _out) {
+  public AstNode Generate(
+      final String _in,
+      final String _out,
+      final Function<AstNode, AstNode> _returnFunction) {
     final InGenerator _inGen = this;
     return JSUtil.genCall(
       JSUtil.genName(_in),
@@ -37,7 +40,7 @@ public class InGenerator extends AsyncJSGenerator {
             _inGen.callback != null
               ? JSUtil.genBlock(
                   _inGen.callback.call(JSUtil.genName(param))
-                    .Generate(_in, _out)
+                    .Generate(_in, _out, _returnFunction)
                 )
               : new Block()
           );

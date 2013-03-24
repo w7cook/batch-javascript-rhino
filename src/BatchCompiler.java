@@ -137,19 +137,20 @@ public class BatchCompiler implements NodeVisitor {
               .action()
               .runExtra(new JSPartitionFactory(batchFunctionsInfo));
             if (preNode == null && script == null) {
-              preNode = local.Generate(null, "s$");
+              preNode = local.Generate(null, "s$", preventReturning);
             } else {
               postNode = local
-                .Bind(new JSGenFunction<AstNode>() {
-                  public AstNode Generate(String in, String out, final AstNode _result) {
-                    return new FunctionCall() {{
-                      setTarget(JSUtil.genName("callback$"));
-                      // TODO: pass undefined if not returning an expression
-                      addArgument(_result);
-                    }};
+                .Bind(Function.<AstNode,Generator>Const(
+                  new ReturnGenerator(JSUtil.genUndefined())
+                ))
+                .Generate("r$", null, new Function<AstNode, AstNode>() {
+                  public AstNode call(AstNode result) {
+                    return JSUtil.genCall(
+                      JSUtil.genName("callback$"),
+                      result
+                    );
                   }
-                })
-                .Generate("r$", null);
+                });
             }
             break;
           case REMOTE:
@@ -288,7 +289,7 @@ public class BatchCompiler implements NodeVisitor {
             AstNode local = stage
               .action()
               .runExtra(new JSPartitionFactory(batchFunctionsInfo))
-              .Generate("r$", "s$");
+              .Generate("r$", "s$", preventReturning);
             if (preNode == null && script == null) {
               preNode = local;
             } else {
@@ -361,4 +362,11 @@ public class BatchCompiler implements NodeVisitor {
       default: throw new Error("Invalid place: "+placeName);
     }
   }
+
+  private static final Function<AstNode, AstNode> preventReturning =
+    new Function<AstNode, AstNode>() {
+      public AstNode call(AstNode result) {
+        throw new Error("Invalid return in batch expression");
+      }
+    };
 }

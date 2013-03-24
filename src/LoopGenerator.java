@@ -20,7 +20,10 @@ public class LoopGenerator extends AsyncJSGenerator {
     this.bodyGen = bodyGen;
   }
 
-  public AstNode Generate(final String _in, final String _out) {
+  public AstNode Generate(
+      final String _in,
+      final String _out,
+      final Function<AstNode, AstNode> _returnFunction) {
     final LoopGenerator _loopGen = this;
     final String _next = var+"_next";
     return JSUtil.genCall(
@@ -37,29 +40,52 @@ public class LoopGenerator extends AsyncJSGenerator {
                 public AstNode Generate(
                     String in,
                     String out,
-                    final AstNode _body) {
-                  return JSUtil.concatBlocks(
-                    _body,
-                    new FunctionCall() {{
-                      setTarget(JSUtil.genName(_next));
-                    }}
+                    Function<AstNode, AstNode> returnFunction,
+                    AstNode _) {
+                  return JSUtil.genCall(
+                    JSUtil.genName(_next),
+                    JSUtil.genFalse(),
+                    JSUtil.genUndefined()
                   );
                 }
               }).Generate(
                 _in  != null ? _loopGen.var : null,
-                _out != null ? _loopGen.var : null
+                _out != null ? _loopGen.var : null,
+                new Function<AstNode, AstNode>() {
+                  public AstNode call(AstNode result) {
+                    return JSUtil.genCall(
+                      JSUtil.genName(_next),
+                      JSUtil.genTrue(),
+                      result
+                    );
+                  }
+                }
               )
             )
           );
         }});
         add(new FunctionNode() {{
+          addParam(JSUtil.genName("isReturning$"));
+          addParam(JSUtil.genName("value$"));
           setBody(
-            _loopGen.callback != null
-              ? JSUtil.genBlock(
-                  _loopGen.callback.call(new EmptyExpression())
-                    .Generate(_in, _out)
-                )
-              : new Block()
+            JSUtil.genBlock(
+              new IfStatement() {{
+                setCondition(JSUtil.genName("isReturning$"));
+                setThenPart(
+                  JSUtil.genBlock(
+                  _returnFunction.call(JSUtil.genName("value$"))
+                  )
+                );
+                setElsePart(
+                  _loopGen.callback != null
+                    ? JSUtil.genBlock(
+                        _loopGen.callback.call(null)
+                          .Generate(_in, _out, _returnFunction)
+                      )
+                    : new Block()
+                );
+              }}
+            )
           );
         }});
       }}

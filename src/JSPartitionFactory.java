@@ -40,16 +40,19 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
   @Override
   public Generator Fun(final String _var, final Generator _body) {
     return new Generator() {
-      public AstNode Generate(final String _in, final String _out) {
+      public AstNode Generate(
+          final String _in,
+          final String _out,
+          final Function<AstNode, AstNode> _returnFunction) {
         // paper TODO: Prevent remote code in body
         // TODO:
         //  x.set_f(function (x) {
         //    return x + name; // not converting to INPUT
-        //  }
+        //  })
         //  x.f("*")
         return new FunctionNode() {{
           addParam(JSUtil.genName(_var));
-          setBody(JSUtil.genBlock(_body.Generate(_in, _out)));
+          setBody(JSUtil.genBlock(_body.Generate(_in, _out, /*TODO*/ JSUtil.<Function<AstNode,AstNode>>noimpl())));
         }};
       }
     };
@@ -57,14 +60,10 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
 
   public Generator Seq(final Iterator<Generator> _gens) {
     if (_gens.hasNext()) {
-      return _gens.next().Bind(new JSGenFunction<AstNode>() {
-        public AstNode Generate(
-            final String _in,
-            final String _out,
-            final AstNode _node) {
-          return JSUtil.concatBlocks(
-            _node,
-            Seq(_gens).Generate(_in, _out)
+      return _gens.next().Bind(new Function<AstNode,Generator>() {
+        public Generator call(AstNode node) {
+          return new SequenceGenerator(node).Bind(
+            Function.<AstNode,Generator>Const(Seq(_gens))
           );
         }
       });
@@ -89,11 +88,12 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
     }
     return Monad.SequenceBind(argGens, new JSGenFunction<List<AstNode>>() {
       public AstNode Generate(
-          final String _in,
-          final String _out,
-          final List<AstNode> _args) {
+          String in,
+          String out,
+          Function<AstNode, AstNode> returnFunction,
+          List<AstNode> args) {
         int type;
-        switch (_args.size()) {
+        switch (args.size()) {
           case 1:
             switch (_op) {
               case NOT:
@@ -118,8 +118,8 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
             return
               new InfixExpression(
                 type,
-                _args.get(0),
-                _args.get(1),
+                args.get(0),
+                args.get(1),
                 0
               );
           default:
@@ -132,7 +132,11 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
   @Override
   public Generator Prop(Generator baseGen, final String _field) {
     return baseGen.Bind(new JSGenFunction<AstNode>() {
-      public AstNode Generate(String in, String out, AstNode base) {
+      public AstNode Generate(
+          String in,
+          String out,
+          Function<AstNode, AstNode> returnFunction,
+          AstNode base) {
         return new PropertyGet(
           base,
           JSUtil.genName(_field)
@@ -148,6 +152,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
         public AstNode Generate(
             String in, 
             String out,
+            Function<AstNode, AstNode> returnFunction,
             AstNode target,
             AstNode source) {
           return new Assignment(Token.ASSIGN, target, source, 0);
@@ -166,6 +171,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
         public AstNode Generate(
             String in,
             String out,
+            Function<AstNode, AstNode> returnFunction,
             AstNode expression,
             AstNode body) {
           return JSUtil.genLet(_var, expression, body);
@@ -205,6 +211,7 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
           public AstNode Generate(
               String in,
               String out,
+              Function<AstNode, AstNode> returnFunction,
               List<AstNode> args) {
             return JSUtil.genCall(_target, _method, args);
           }
@@ -221,7 +228,11 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
   @Override
   public Generator Out(final String _location, Generator expressionGen) {
     return expressionGen.Bind(new JSGenFunction<AstNode>() {
-      public AstNode Generate(String in, String out, AstNode expression) {
+      public AstNode Generate(
+          String in,
+          String out,
+          Function<AstNode, AstNode> returnFunction,
+          AstNode expression) {
         return new Assignment(
           Token.ASSIGN,
           new PropertyGet(
@@ -237,11 +248,15 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
 
   @Override
   public Generator Other(
-      Object external,
+      final Object _external,
       List<Generator> subGens) {
-    return Monad.SequenceBind(subGens, new JSGenFunction<List<AstNode>>() {
-      public AstNode Generate(String in, String out, List<AstNode> subs) {
-        return JSUtil.noimpl();
+    return Monad.SequenceBind(subGens, new Function<List<AstNode>, Generator>() {
+      public Generator call(List<AstNode> subs) {
+        if (_external.equals(Token.RETURN) && subs.size() == 1) {
+          return new ReturnGenerator(subs.get(0));
+        } else {
+          return JSUtil.noimpl();
+        }
       }
     });
   }
@@ -265,7 +280,10 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
   @Override
   public Generator Mobile(String type, Generator exp) {
     return new Generator() {
-      public AstNode Generate(String in, String out) {
+      public AstNode Generate(
+          String in,
+          String out,
+          Function<AstNode, AstNode> returnFunction) {
         return JSUtil.noimpl();
       }
     };
@@ -279,7 +297,10 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
   @Override
   public Generator Root() {
     return new Generator() {
-      public AstNode Generate(String in, String out) {
+      public AstNode Generate(
+          String in,
+          String out,
+          Function<AstNode, AstNode> returnFunction) {
         return JSUtil.genName(ROOT_VAR_NAME);
       }
     };

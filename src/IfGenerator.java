@@ -33,54 +33,77 @@ public class IfGenerator extends AsyncJSGenerator {
     this.elseExprGen = elseExprGen;
   }
 
-  public AstNode Generate(final String _in, final String _out) {
+  public AstNode Generate(
+      final String _in,
+      final String _out,
+      final Function<AstNode, AstNode> _returnFunction) {
     final IfGenerator _ifGen = this;
+    final String _callback = _ifGen.genNextString();
+    final Function<AstNode, Generator> _postBranch =
+      new JSGenFunction<AstNode>() {
+        public AstNode Generate(
+            String in,
+            String out,
+            Function<AstNode, AstNode> returnFunction,
+            final AstNode _result) {
+          return JSUtil.genCall(
+            JSUtil.genName(_callback),
+            JSUtil.genFalse(),
+            JSUtil.isEmpty(_result)
+              ? JSUtil.genUndefined()
+              : _result
+          );
+        }
+      };
+    final Function<AstNode, AstNode> _returnCallback =
+      new Function<AstNode, AstNode>() {
+        public AstNode call(AstNode result) {
+          return JSUtil.genCall(
+            JSUtil.genName(_callback), 
+            JSUtil.genTrue(),
+            result
+          );
+        }
+      };
     return new FunctionCall() {{
       setTarget(new ParenthesizedExpression(new FunctionNode() {{
-        final String _callback = _ifGen.genNextString();
         addParam(JSUtil.genName(_callback));
         setBody(JSUtil.genBlock(new IfStatement() {{
           setCondition(_ifGen.condition);
           setThenPart(JSUtil.genBlock(
-            _ifGen.thenExprGen.Bind(new JSGenFunction<AstNode>() {
-              public AstNode Generate(
-                  String in,
-                  String out,
-                  final AstNode _then) {
-                return JSUtil.concatBlocks(
-                  _then,
-                  new FunctionCall() {{
-                    setTarget(JSUtil.genName(_callback));
-                  }}
-                );
-              }
-            }).Generate(_in, _out)
+            _ifGen.thenExprGen
+              .Bind(_postBranch)
+              .Generate(_in, _out, _returnCallback)
           ));
           setElsePart(JSUtil.genBlock(
-            _ifGen.elseExprGen.Bind(new JSGenFunction<AstNode>() {
-              public AstNode Generate(
-                  String in,
-                  String out,
-                  final AstNode _else) {
-                return JSUtil.concatBlocks(
-                  _else,
-                  new FunctionCall() {{
-                    setTarget(JSUtil.genName(_callback));
-                  }}
-                );
-              }
-            }).Generate(_in, _out)
+            _ifGen.elseExprGen
+              .Bind(_postBranch)
+              .Generate(_in, _out, _returnCallback)
           ));
         }}));
       }}));
       addArgument(new FunctionNode() {{
+        addParam(JSUtil.genName("isReturning$")); // TODO: avoid collisions
+        addParam(JSUtil.genName("value$"));
         setBody(
-          _ifGen.callback != null
-            ? JSUtil.genBlock(
-                _ifGen.callback.call(new EmptyExpression())
-                  .Generate(_in, _out)
-              )
-            : new Block()
+          JSUtil.genBlock(
+            new IfStatement() {{
+              setCondition(JSUtil.genName("isReturning$"));
+              setThenPart(
+                JSUtil.genBlock(
+                _returnFunction.call(JSUtil.genName("value$"))
+                )
+              );
+              if (_ifGen.callback != null) {
+                setElsePart(
+                  JSUtil.genBlock(
+                    _ifGen.callback.call(JSUtil.genName("value$"))
+                      .Generate(_in, _out, _returnFunction)
+                  )
+                );
+              }
+            }}
+          )
         );
       }});
     }};

@@ -36,7 +36,10 @@ public class DynamicCallGenerator extends AsyncJSGenerator {
     this.callInfo = callInfo;
   }
 
-  public AstNode Generate(final String _in, final String _out) {
+  public AstNode Generate(
+      final String _in,
+      final String _out,
+      final Function<AstNode, AstNode> _returnFunction) {
     final DynamicCallGenerator _dcGen = this;
     return new FunctionCall() {{
       setTarget(JSUtil.genName(_dcGen.function+"$postLocal"));
@@ -59,7 +62,7 @@ public class DynamicCallGenerator extends AsyncJSGenerator {
                 _dcGen
                   .callback
                   .call(JSUtil.genName(param))
-                  .Generate(_in, _out)
+                  .Generate(_in, _out, _returnFunction)
               )
             : new Block()
         );
