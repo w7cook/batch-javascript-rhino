@@ -4,6 +4,10 @@ public class SequenceGenerator extends AsyncJSGenerator {
   private AstNode statements;
   private AstNode value;
 
+  public SequenceGenerator() {
+    this(null);
+  }
+
   public SequenceGenerator(AstNode statements) {
     this(statements, null); // TODO maybe: mark not value
   }

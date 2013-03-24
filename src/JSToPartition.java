@@ -153,7 +153,7 @@ public class JSToPartition<E> {
         if (funcName != null && batchFunctionsInfo.containsKey(funcName)) {
           return factory.setExtra(
             factory.DynamicCall(
-              factory.Var("$$global$$"), // TODO: factory.Other(null)
+              factory.Skip(),
               funcName,
               mapExprFrom(call.getArguments())
             ),

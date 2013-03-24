@@ -110,14 +110,35 @@ public class BatchCompiler implements NodeVisitor {
     }
 
     for (TargetBatch<BatchFunction> batchFunc: batchFunctionNodes) {
-      FunctionNode func = batchFunc.original.getFunctionNode();
+      final FunctionNode _func = batchFunc.original.getFunctionNode();
 
       CodeModel.factory.allowAllTransers = true;
-      PExpr origExpr =
+      final PExpr _origExpr =
         new JSToPartition<PExpr>(CodeModel.factory, null, batchFunctionsInfo)
-          .exprFrom(func.getBody());
+          .exprFrom(_func.getBody());
+      AstNode rawFunction = new FunctionNode() {{
+        setFunctionName(_func.getFunctionName());
+        for (AstNode param : _func.getParams()) {
+          if (param instanceof BatchParam) {
+            addParam(((BatchParam)param).getParameter());
+          } else {
+            addParam(param);
+          }
+        }
+        setBody(JSUtil.genBlock(
+          _origExpr
+            .runExtra(new RawJSFactory())
+            .Generate(null, null, new Function<AstNode, AstNode>() {
+              public AstNode call(final AstNode _result) {
+                return new ReturnStatement() {{
+                  setReturnValue(_result);
+                }};
+              }
+            })
+        ));
+      }};
       Environment env = new Environment(CodeModel.factory);
-      for (AstNode astParam : func.getParams()) {
+      for (AstNode astParam : _func.getParams()) {
         BatchParam param = (BatchParam)astParam;
         env = env.extend(
           JSUtil.mustIdentifierOf(param.getParameter()),
@@ -125,7 +146,7 @@ public class BatchCompiler implements NodeVisitor {
           toPlace(param.getPlace())
         );
       }
-      History history = origExpr.partition(Place.MOBILE, env);
+      History history = _origExpr.partition(Place.MOBILE, env);
       AstNode preNode = null;
       AstNode script = null;
       AstNode postNode = null;
@@ -159,12 +180,11 @@ public class BatchCompiler implements NodeVisitor {
         }
       }
       if (postNode == null) {
-        batchFunctionsInfo.get(func.getName()).returns = Place.REMOTE;
+        batchFunctionsInfo.get(_func.getName()).returns = Place.REMOTE;
       }
       final AstNode _preNode = preNode;
       final AstNode _script = script;
       final AstNode _postNode = postNode;
-      final FunctionNode _func = func;
       AstNode remoteFunc = new FunctionNode() {{
         setFunctionName(JSUtil.genName(
           _func.getFunctionName().getIdentifier() + "$getRemote"
@@ -215,17 +235,7 @@ public class BatchCompiler implements NodeVisitor {
       }};
 
       batchFunc.compiled = JSUtil.concatBlocks(
-        new FunctionNode() {{
-          setFunctionName(_func.getFunctionName());
-          for (AstNode param : _func.getParams()) {
-            if (param instanceof BatchParam) {
-              addParam(((BatchParam)param).getParameter());
-            } else {
-              addParam(param);
-            }
-          }
-          setBody(_func.getBody());
-        }},
+        rawFunction,
         remoteFunc,
         postLocalFunc
       );

@@ -33,24 +33,39 @@ public class JSUtil {
     }};
   }
 
+  public static VariableDeclaration genDeclareExpr(final String _var) {
+    return new VariableDeclaration() {{
+      addVariable(new VariableInitializer() {{
+        setNodeType(Token.VAR);
+        setTarget(JSUtil.genName(_var));
+      }});
+    }};
+  }
+
   public static VariableDeclaration genDeclareExpr(
       final String _var,
       final AstNode _init) {
     return new VariableDeclaration() {{
       addVariable(new VariableInitializer() {{
         setNodeType(Token.VAR);
-        setTarget(new Name(0, _var));
+        setTarget(JSUtil.genName(_var));
         setInitializer(_init);
       }});
     }};
   }
 
+  public static VariableDeclaration genDeclare(String var) {
+    VariableDeclaration declareExpr = genDeclareExpr(var);
+    declareExpr.setIsStatement(true);
+    // Don't want to wrap in ExpressionStatement, ends up with double semicolons
+    return declareExpr;
+  }
+
   public static VariableDeclaration genDeclare(String var, AstNode init) {
     VariableDeclaration declareExpr = genDeclareExpr(var, init);
     declareExpr.setIsStatement(true);
-    return declareExpr;
     // Don't want to wrap in ExpressionStatement, ends up with double semicolons
-    //return new ExpressionStatement(declareExpr);
+    return declareExpr;
   }
 
   public static AstNode genCall(
@@ -83,6 +98,15 @@ public class JSUtil {
       for (AstNode arg : _args) {
         addArgument(arg);
       }
+    }};
+  }
+
+  public static AstNode genCall(
+      final AstNode _function,
+      final List<AstNode> _args) {
+    return new FunctionCall() {{
+      setTarget(_function);
+      setArguments(_args);
     }};
   }
 

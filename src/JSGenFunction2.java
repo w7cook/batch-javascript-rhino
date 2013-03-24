@@ -23,8 +23,7 @@ abstract public class JSGenFunction2<A,B>
   abstract public AstNode Generate(
       String in,
       String out,
-      Function<AstNode, AstNode>
-      returnFunction,
+      Function<AstNode, AstNode> returnFunction,
       A a,
       B b
     );

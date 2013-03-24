@@ -24,8 +24,7 @@ abstract public class JSGenFunction3<A,B,C>
   abstract public AstNode Generate(
       String in,
       String out,
-      Function<AstNode, AstNode>
-      returnFunction,
+      Function<AstNode, AstNode> returnFunction,
       A a,
       B b,
       C c
