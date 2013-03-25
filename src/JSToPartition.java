@@ -37,7 +37,7 @@ public class JSToPartition<E> {
       case Token.CALL:
         return exprFromFunctionCall((FunctionCall)node);
       case Token.EXPR_RESULT:
-      case Token.EXPR_VOID:
+      case Token.EXPR_VOID: // TODO: LabledExpression
         return exprFromExpressionStatement((ExpressionStatement)node);
       case Token.NAME:
         return exprFromName((Name)node);
@@ -92,6 +92,10 @@ public class JSToPartition<E> {
           "Inlined batch functions must be called: <batch "
           + ((BatchInline)node).getFunctionName().toSource() + ">"
         );
+      case Token.LP:
+        return exprFrom(((ParenthesizedExpression)node).getExpression());
+      case Token.HOOK:
+        return exprFromConditionalExpression((ConditionalExpression)node);
       default:
         System.err.println("INCOMPLETE: "+Token.typeToName(node.getType())+" "+node.getClass().getName());
         return JSUtil.noimpl();
@@ -291,6 +295,14 @@ public class JSToPartition<E> {
         exprFrom(ifStmt.getElsePart())
       ),
       JSMarkers.IF_STATEMENT
+    );
+  }
+
+  private E exprFromConditionalExpression(ConditionalExpression expr) {
+    return factory.If(
+      exprFrom(expr.getTestExpression()),
+      exprFrom(expr.getTrueExpression()),
+      exprFrom(expr.getFalseExpression())
     );
   }
 
