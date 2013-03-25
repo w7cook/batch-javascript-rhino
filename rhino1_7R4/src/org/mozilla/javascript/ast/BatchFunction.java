@@ -4,15 +4,22 @@ import org.mozilla.javascript.Token;
 
 public class BatchFunction extends AstNode {
 
-  {
-    type = Token.BATCH_FUNCTION;
-  }
-
+  private BatchPlace returnPlace;
   private FunctionNode functionNode;
 
-  public BatchFunction(int pos, FunctionNode func) {
+  public BatchFunction(int pos, int place, FunctionNode func) {
     super(pos);
+    type = place;
+    returnPlace = BatchPlace.fromToken(place);
     setFunctionNode(func);
+  }
+
+  public BatchPlace getReturnPlace() {
+    return returnPlace;
+  }
+
+  public void setReturnPlace(BatchPlace place) {
+    returnPlace = place;
   }
 
   public FunctionNode getFunctionNode() {
@@ -34,6 +41,7 @@ public class BatchFunction extends AstNode {
 
   @Override
   public String toSource(int depth) {
-    return makeIndent(depth) + "batch " + functionNode.toSource(0);
+    return makeIndent(depth)
+           + returnPlace.toKeyword() + " " + functionNode.toSource(0);
   }
 }

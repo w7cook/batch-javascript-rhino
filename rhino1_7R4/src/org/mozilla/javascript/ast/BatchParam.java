@@ -4,20 +4,20 @@ import org.mozilla.javascript.Token;
 
 public class BatchParam extends AstNode {
 
-  private String place;
+  private BatchPlace place;
   private AstNode param;
 
-  public BatchParam(int pos, String place, AstNode param) {
+  public BatchParam(int pos, BatchPlace place, AstNode param) {
     super(pos);
     setPlace(place);
     setParameter(param);
   }
 
-  public String getPlace() {
+  public BatchPlace getPlace() {
     return place;
   }
 
-  public void setPlace(String place) {
+  public void setPlace(BatchPlace place) {
     this.place = place;
   }
 
@@ -40,6 +40,6 @@ public class BatchParam extends AstNode {
 
   @Override
   public String toSource(int depth) {
-    return makeIndent(depth) + place.toLowerCase() + " " + param.toSource(0);
+    return makeIndent(depth) + place.toKeyword() + " " + param.toSource(0);
   }
 }

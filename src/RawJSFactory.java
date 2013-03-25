@@ -266,7 +266,7 @@ public class RawJSFactory extends PartitionFactoryHelper<Generator> {
   public Generator Other(
       final Object _external,
       List<Generator> subGens) {
-    if (_external.equals(Token.RETURN) && subGens.size() == 1) {
+    if (_external.equals(JSMarkers.RETURN) && subGens.size() == 1) {
       return subGens.get(0).Bind(new Function<AstNode, Generator>() {
         public Generator call(AstNode result) {
           return new ReturnGenerator(result);
@@ -326,6 +326,13 @@ public class RawJSFactory extends PartitionFactoryHelper<Generator> {
 
   @Override
   public Generator setExtra(Generator exp, Object extra) {
+    if (JSMarkers.RETURN.equals(extra)) {
+      return exp.Bind(new Function<AstNode, Generator>() {
+        public Generator call(AstNode result) {
+          return new ReturnGenerator(result);
+        }
+      });
+    }
     return exp.setExtra(extra);
   }
 

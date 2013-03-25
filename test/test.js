@@ -19,7 +19,7 @@ window.onload = (function(old_onload) {
 //batch function f(remote x, remote i, local y) {
 //  console.log(x.foo(i) + y + i);
 //}
-batch function getSomeBigFileName(remote dir, remote i) {
+batch function local getSomeBigFileName(remote dir, remote i) {
   for each (var file in dir.listFiles()) {
     if (file.length() > i) {
       return file.getName();
@@ -27,19 +27,26 @@ batch function getSomeBigFileName(remote dir, remote i) {
   }
   return "<NONE>";
 }
-//batch function f(remote x, remote i, local y) {
-//  if (x.foo(i) > 10) {
-//    return y;
-//  } else {
-//    return "BAD";
-//  }
-//}
+batch function remote f(remote x, remote i) {
+  return (
+    x.foo(i) > 10
+      ? i
+      : "BAD"
+  );
+}
+batch function remote g(remote x, remote i) {
+  if (x.foo(i) > 10) {
+    return i;
+  } else {
+    return "BAD"
+  };
+}
 
 XX = {bigSize: function() { return 1000; } }
 batch (var root in __BATCH_SERVICE__) {
   page.putText(
     "Following file is big: "
-    + batch getSomeBigFileName(root.getDir(),XX.bigSize())
+    + batch getSomeBigFileName(root.getDir(),batch f(root,XX.bigSize()))
   );
   //batch f(root.bar(20), XX.get(), "yay");
   page.putText("hello");

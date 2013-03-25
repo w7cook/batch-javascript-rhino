@@ -33,33 +33,37 @@ public class DynamicCallGenerator extends CallbackManipulatorGenerator {
       final String _out,
       final Function<AstNode, AstNode> _returnFunction,
       final Function<AstNode, Generator> _callback) {
-    final DynamicCallGenerator _dcGen = this;
-    return new FunctionCall() {{
-      setTarget(JSUtil.genName(_dcGen.function+"$postLocal"));
-      addArgument(JSUtil.genName(_in));
-      // local args
-      Iterator<AstNode> argIt = args.iterator();
-      Iterator<Place> placeIt = callInfo.arguments.iterator();
-      while (argIt.hasNext() && placeIt.hasNext()) {
-        AstNode arg = argIt.next();
-        if (placeIt.next() != Place.REMOTE) {
-          addArgument(arg);
+    if (callInfo.returns == Place.REMOTE) {
+      return _callback.call(null).Generate(_in, _out, _returnFunction);
+    } else {
+      final DynamicCallGenerator _dcGen = this;
+      return new FunctionCall() {{
+        setTarget(JSUtil.genName(_dcGen.function+"$postLocal"));
+        addArgument(JSUtil.genName(_in));
+        // local args
+        Iterator<AstNode> argIt = args.iterator();
+        Iterator<Place> placeIt = callInfo.arguments.iterator();
+        while (argIt.hasNext() && placeIt.hasNext()) {
+          AstNode arg = argIt.next();
+          if (placeIt.next() != Place.REMOTE) {
+            addArgument(arg);
+          }
         }
-      }
-      addArgument(new FunctionNode() {{
-        String param = _dcGen.genNextString();
-        addParam(JSUtil.genName(param));
-        setBody(
-          _callback != null
-            ? JSUtil.genBlock(
-                _callback
-                  .call(JSUtil.genName(param))
-                  .Generate(_in, _out, _returnFunction)
-              )
-            : new Block()
-        );
-      }});
-    }};
+        addArgument(new FunctionNode() {{
+          String param = _dcGen.genNextString();
+          addParam(JSUtil.genName(param));
+          setBody(
+            _callback != null
+              ? JSUtil.genBlock(
+                  _callback
+                    .call(JSUtil.genName(param))
+                    .Generate(_in, _out, _returnFunction)
+                )
+              : new Block()
+          );
+        }});
+      }};
+    }
   }
 }
 

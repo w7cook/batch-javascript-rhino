@@ -697,14 +697,11 @@ public class Parser
                 defineSymbol(Token.LP, pname, false);
                 destructuring.put(pname, expr);
             } else {
-                String place = null;
-                peekToken();
-                int placePos = ts.tokenBeg;
-                if (matchToken(Token.BATCH_REMOTE)) {
-                  place = "REMOTE";
-                } else if (matchToken(Token.BATCH_LOCAL)) {
-                  place = "LOCAL";
+                BatchPlace place = BatchPlace.fromToken(peekToken());
+                if (place != null) {
+                  consumeToken();
                 }
+                int placePos = ts.tokenBeg;
                 if (mustMatchToken(Token.NAME, "msg.no.parm")) {
                     AstNode param = createNameNode();
                     if (place != null) {
@@ -1361,8 +1358,13 @@ public class Parser
     private BatchFunction batchFunction(int batchPos, int lineno)
         throws IOException
     {
+      int place = nextToken();
+      if (BatchPlace.fromToken(place) == null) {
+        reportError("msg.no.place.batch.function");
+      }
       BatchFunction bf = new BatchFunction(
         batchPos,
+        place,
         function(FunctionNode.FUNCTION_EXPRESSION_STATEMENT)
       );
       bf.setLineno(lineno);

@@ -102,10 +102,10 @@ public class BatchCompiler implements NodeVisitor {
       }
       batchFunctionsInfo.put(
         func.getName(),
-        // TODO: if function has no postLocal body, then return = Place.REMOTE
-        //       unfortunately, don't have that info at this point
-        //       (for calling batch functions within preceding batch functions)
-        new DynamicCallInfo(Place.LOCAL, argPlaces)
+        new DynamicCallInfo(
+          toPlace(batchFunc.original.getReturnPlace()),
+          argPlaces
+        )
       );
     }
 
@@ -113,9 +113,15 @@ public class BatchCompiler implements NodeVisitor {
       final FunctionNode _func = batchFunc.original.getFunctionNode();
 
       CodeModel.factory.allowAllTransers = true;
+      final boolean _isRemoteFunction =
+        batchFunctionsInfo.get(_func.getName()).returns == Place.REMOTE;
       final PExpr _origExpr =
-        new JSToPartition<PExpr>(CodeModel.factory, null, batchFunctionsInfo)
-          .exprFrom(_func.getBody());
+        new JSToPartition<PExpr>(
+            CodeModel.factory,
+            null,
+            _isRemoteFunction,
+            batchFunctionsInfo
+          ).exprFrom(_func.getBody());
       AstNode rawFunction = new FunctionNode() {{
         setFunctionName(_func.getFunctionName());
         for (AstNode param : _func.getParams()) {
@@ -179,9 +185,11 @@ public class BatchCompiler implements NodeVisitor {
             break;
         }
       }
-      if (postNode == null) {
-        // TODO: also when postNode is only returning remote
-        batchFunctionsInfo.get(_func.getName()).returns = Place.REMOTE;
+      if (postNode != null && _isRemoteFunction) {
+        throw new Error(
+          "Compiler error: remote batch functions should not have post "
+          + "local code"
+        );
       }
       final AstNode _preNode = preNode;
       final AstNode _script = script;
@@ -211,29 +219,32 @@ public class BatchCompiler implements NodeVisitor {
           }}
         ));
       }};
-      AstNode postLocalFunc = new FunctionNode() {{
-        setFunctionName(JSUtil.genName(
-          _func.getFunctionName().getIdentifier() + "$postLocal"
-        ));
-        addParam(JSUtil.genName("r$"));
-        // add local params
-        Iterator<AstNode> argIt = _func.getParams().iterator();
-        Iterator<Place> placeIt =
-          batchFunctionsInfo.get(_func.getName()).arguments.iterator();
-        while (argIt.hasNext()) {
-          BatchParam param = (BatchParam)argIt.next();
-          if (placeIt.next() != Place.REMOTE) {
-            String paramName = JSUtil.mustIdentifierOf(param.getParameter());
-            addParam(JSUtil.genName(paramName));
+      AstNode postLocalFunc = null;
+      if (!_isRemoteFunction) {
+        postLocalFunc = new FunctionNode() {{
+          setFunctionName(JSUtil.genName(
+            _func.getFunctionName().getIdentifier() + "$postLocal"
+          ));
+          addParam(JSUtil.genName("r$"));
+          // add local params
+          Iterator<AstNode> argIt = _func.getParams().iterator();
+          Iterator<Place> placeIt =
+            batchFunctionsInfo.get(_func.getName()).arguments.iterator();
+          while (argIt.hasNext()) {
+            BatchParam param = (BatchParam)argIt.next();
+            if (placeIt.next() != Place.REMOTE) {
+              String paramName = JSUtil.mustIdentifierOf(param.getParameter());
+              addParam(JSUtil.genName(paramName));
+            }
           }
-        }
-        addParam(JSUtil.genName("callback$")); // TODO: avoid conflicts
-        setBody(
-          _postNode != null
-            ? JSUtil.genBlock(_postNode)
-            : JSUtil.concatBlocks()
-        );
-      }};
+          addParam(JSUtil.genName("callback$")); // TODO: avoid conflicts
+          setBody(
+            _postNode != null
+              ? JSUtil.genBlock(_postNode)
+              : JSUtil.concatBlocks()
+          );
+        }};
+      }
 
       batchFunc.compiled = JSUtil.concatBlocks(
         rawFunction,
@@ -286,8 +297,12 @@ public class BatchCompiler implements NodeVisitor {
       );
       CodeModel.factory.allowAllTransers = true;
       PExpr origExpr =
-        new JSToPartition<PExpr>(CodeModel.factory, root, batchFunctionsInfo)
-          .exprFrom(batch.getBody());
+        new JSToPartition<PExpr>(
+            CodeModel.factory,
+            root,
+            false,
+            batchFunctionsInfo
+          ).exprFrom(batch.getBody());
       Environment env = new Environment(CodeModel.factory)
         .extend(CodeModel.factory.RootName(), null, Place.REMOTE);
       History history = origExpr.partition(Place.MOBILE, env);
@@ -364,13 +379,11 @@ public class BatchCompiler implements NodeVisitor {
     }
   }
 
-  private static Place toPlace(String placeName) {
-    switch (placeName) {
-      case "REMOTE": return Place.REMOTE;
-      case "LOCAL": return Place.LOCAL;
-      case "MOBILE": return Place.MOBILE;
-      case "UNKNOWN": return Place.UNKNOWN;
-      default: throw new Error("Invalid place: "+placeName);
+  private static Place toPlace(BatchPlace place) {
+    switch (place) {
+      case REMOTE: return Place.REMOTE;
+      case LOCAL: return Place.LOCAL;
+      default: throw new Error("Invalid place: "+place);
     }
   }
 

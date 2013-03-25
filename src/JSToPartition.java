@@ -15,12 +15,15 @@ import java.util.Map;
 public class JSToPartition<E> {
   private PartitionFactory<E> factory;
   private String root;
+  private boolean remoteReturnValue;
   private Map<String, DynamicCallInfo> batchFunctionsInfo;
 
   public JSToPartition(
       PartitionFactory<E> factory,
       String root,
+      boolean remoteReturnValue,
       Map<String, DynamicCallInfo> batchFunctionsInfo) {
+    this.remoteReturnValue = remoteReturnValue;
     this.factory = factory;
     this.root = root;
     this.batchFunctionsInfo = batchFunctionsInfo;
@@ -319,8 +322,11 @@ public class JSToPartition<E> {
   }
 
   private E exprFromReturnStatement(ReturnStatement ret) {
-    //return factory.setExtra(exprFrom(ret.getReturnValue()), Token.RETURN);
-    return factory.Other(Token.RETURN, exprFrom(ret.getReturnValue()));
+    if (remoteReturnValue) {
+      return factory.setExtra(exprFrom(ret.getReturnValue()), JSMarkers.RETURN);
+    } else {
+      return factory.Other(JSMarkers.RETURN, exprFrom(ret.getReturnValue()));
+    }
   }
 
   private E exprFromOther(AstNode node) {

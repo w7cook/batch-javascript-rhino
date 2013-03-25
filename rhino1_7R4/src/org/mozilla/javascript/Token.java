@@ -231,10 +231,9 @@ public class Token
         LAST_TOKEN     = 163,
 
         BATCH          = 164,
-        BATCH_FUNCTION = 165,
-        BATCH_INLINE   = 166,
-        BATCH_REMOTE   = 167,
-        BATCH_LOCAL    = 168;
+        BATCH_INLINE   = 165,
+        BATCH_REMOTE   = 166,
+        BATCH_LOCAL    = 167;
 
     /**
      * Returns a name for the token.  If Rhino is compiled with certain
@@ -420,7 +419,6 @@ public class Token
           case COMMENT:         return "COMMENT";
           case GENEXPR:         return "GENEXPR";
           case BATCH:           return "BATCH";
-          case BATCH_FUNCTION:  return "BATCH_FUNCTION";
           case BATCH_INLINE:    return "BATCH_INLINE";
           case BATCH_REMOTE:    return "BATCH_REMOTE";
           case BATCH_LOCAL:     return "BATCH_LOCAL";
