@@ -172,26 +172,44 @@ public class RawJSFactory extends PartitionFactoryHelper<Generator> {
 
   @Override
   public Generator If(
-      Generator conditionGen,
+      final Generator _conditionGen,
       final Generator _thenExprGen,
       final Generator _elseExprGen) {
-    return conditionGen.Bind(new JSGenFunction<AstNode>() {
+    return new Generator() {
       public AstNode Generate(
           final String _in,
           final String _out,
-          final Function<AstNode, AstNode> _returnFunction,
-          final AstNode _condition) {
-        final AstNode _elseExpr =
-          _elseExprGen.Generate(_in,_out,_returnFunction);
-        return new IfStatement() {{
-          setCondition(_condition);
-          setThenPart(_thenExprGen.Generate(_in,_out,_returnFunction));
-          if (!JSUtil.isEmpty(_elseExpr)) {
-            setElsePart(_elseExpr);
+          final Function<AstNode, AstNode> _returnFunction) {
+        final Generator _this = this;
+        return _conditionGen.Bind(new JSGenFunction<AstNode>() {
+          public AstNode Generate(
+              final String _in,
+              final String _out,
+              final Function<AstNode, AstNode> _returnFunction,
+              final AstNode _condition) {
+            final AstNode _thenExpr =
+              _thenExprGen.Generate(_in,_out,_returnFunction);
+            final AstNode _elseExpr =
+              _elseExprGen.Generate(_in,_out,_returnFunction);
+            if (JSMarkers.IF_STATEMENT.equals(_this.extraInfo)) {
+              return new IfStatement() {{
+                setCondition(_condition);
+                setThenPart(_thenExpr);
+                if (!JSUtil.isEmpty(_elseExpr)) {
+                  setElsePart(_elseExpr);
+                }
+              }};
+            } else {
+              return new ConditionalExpression() {{
+                setTestExpression(_condition);
+                setTrueExpression(_thenExpr);
+                setFalseExpression(_elseExpr);
+              }};
+            }
           }
-        }};
+        }).Generate(_in, _out, _returnFunction);
       }
-    });
+    };
   }
 
   @Override

@@ -2,28 +2,22 @@ import org.mozilla.javascript.ast.*;
 
 import java.util.ArrayList;
 
-public class LoopGenerator extends AsyncJSGenerator {
+public class LoopGenerator extends CallbackManipulatorGenerator {
 
   private final String var;
   private final Generator bodyGen;
 
   public LoopGenerator(String var, Generator bodyGen) {
-    this(var, bodyGen, null);
-  }
-
-  public LoopGenerator(
-      String var,
-      Generator bodyGen,
-      Function<AstNode, Generator> callback) {
-    super(callback);
     this.var = var;
     this.bodyGen = bodyGen;
   }
 
-  public AstNode Generate(
+  @Override
+  public AstNode GenerateOn(
       final String _in,
       final String _out,
-      final Function<AstNode, AstNode> _returnFunction) {
+      final Function<AstNode, AstNode> _returnFunction,
+      final Function<AstNode, Generator> _callback) {
     final LoopGenerator _loopGen = this;
     final String _next = var+"_next";
     return JSUtil.genCall(
@@ -77,9 +71,10 @@ public class LoopGenerator extends AsyncJSGenerator {
                   )
                 );
                 setElsePart(
-                  _loopGen.callback != null
+                  _callback != null
                     ? JSUtil.genBlock(
-                        _loopGen.callback.call(null)
+                        _callback
+                          .call(null)
                           .Generate(_in, _out, _returnFunction)
                       )
                     : new Block()
@@ -89,14 +84,6 @@ public class LoopGenerator extends AsyncJSGenerator {
           );
         }});
       }}
-    );
-  }
-
-  public LoopGenerator cloneFor(Function<AstNode, Generator> newCallback) {
-    return new LoopGenerator(
-      this.var,
-      this.bodyGen,
-      newCallback
     );
   }
 }

@@ -3,7 +3,7 @@ import org.mozilla.javascript.ast.AstNode;
 import batch.partition.ExtraInfo;
 
 abstract public class Generator implements ExtraInfo<Generator> {
-  Object extraInfo;
+  protected Object extraInfo;
 
   public Generator setExtra(Object info) {
     extraInfo = info;

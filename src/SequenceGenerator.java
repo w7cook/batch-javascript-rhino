@@ -1,6 +1,6 @@
 import org.mozilla.javascript.ast.AstNode;
 
-public class SequenceGenerator extends AsyncJSGenerator {
+public class SequenceGenerator extends CallbackManipulatorGenerator {
   private AstNode statements;
   private AstNode value;
 
@@ -13,31 +13,21 @@ public class SequenceGenerator extends AsyncJSGenerator {
   }
 
   public SequenceGenerator(AstNode statements, AstNode value) {
-    this(statements, value, null);
-  }
-
-  public SequenceGenerator(
-      AstNode statements,
-      AstNode value,
-      Function<AstNode, Generator> callback) {
-    super(callback);
     this.statements = statements;
     this.value = value;
   }
 
-  public AstNode Generate(
+  @Override
+  public AstNode GenerateOn(
       String in,
       String out,
-      Function<AstNode, AstNode> returnFunction) {
+      Function<AstNode, AstNode> returnFunction,
+      Function<AstNode, Generator> callback) {
     return JSUtil.concatBlocks(
       statements,
       callback == null
         ? value
         : callback.call(value).Generate(in, out, returnFunction)
     );
-  }
-
-  public SequenceGenerator cloneFor(Function<AstNode, Generator> newCallback) {
-    return new SequenceGenerator(statements, value, newCallback);
   }
 }

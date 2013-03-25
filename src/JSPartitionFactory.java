@@ -40,13 +40,9 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
   @Override
   public Generator If(
       Generator conditionGen,
-      final Generator _thenExprGen,
-      final Generator _elseExprGen) {
-    return conditionGen.Bind(new Function<AstNode, Generator>() {
-      public Generator call(AstNode condition) {
-        return new IfGenerator(condition, _thenExprGen, _elseExprGen);
-      }
-    });
+      Generator thenExprGen,
+      Generator elseExprGen) {
+    return new IfGenerator(conditionGen, thenExprGen, elseExprGen);
   }
 
   @Override

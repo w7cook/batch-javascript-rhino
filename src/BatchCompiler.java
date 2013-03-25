@@ -180,6 +180,7 @@ public class BatchCompiler implements NodeVisitor {
         }
       }
       if (postNode == null) {
+        // TODO: also when postNode is only returning remote
         batchFunctionsInfo.get(_func.getName()).returns = Place.REMOTE;
       }
       final AstNode _preNode = preNode;

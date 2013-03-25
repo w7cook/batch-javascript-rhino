@@ -284,12 +284,13 @@ public class JSToPartition<E> {
   }
 
   private E exprFromIfStatement(IfStatement ifStmt) {
-    // TODO: work for non boolean conditionals,
-    // like strings, numbers, undefined, null, and objects.
-    return factory.If(
-      exprFrom(ifStmt.getCondition()),
-      exprFrom(ifStmt.getThenPart()),
-      exprFrom(ifStmt.getElsePart())
+    return factory.setExtra(
+      factory.If(
+        exprFrom(ifStmt.getCondition()),
+        exprFrom(ifStmt.getThenPart()),
+        exprFrom(ifStmt.getElsePart())
+      ),
+      JSMarkers.IF_STATEMENT
     );
   }
 
