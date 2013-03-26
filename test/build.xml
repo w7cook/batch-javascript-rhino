@@ -23,7 +23,7 @@
     <java
         classname="BatchCompiler"
         output="test/compiled-test-sql.js"
-        errorproperty="java-errors"
+        errorproperty="java-errors-sql"
         fork="true"
       >
       <arg value="${basedir}/test/test-sql.js" />
@@ -32,7 +32,7 @@
         <fileset dir="${dist.dir}"><include name="**/*.jar" /></fileset>
       </classpath>
     </java>
-    <echo message="${java-errors}" />
+    <echo message="${java-errors-sql}" />
   </target>
 
   <target name="input-tcp-args" unless="args">
