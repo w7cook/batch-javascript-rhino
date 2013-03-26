@@ -41,8 +41,16 @@
     <ant antfile="test/build.xml" target="compile-test" />
   </target>
 
+  <target name="compile-servers" depends="build">
+    <ant antfile="test/build.xml" target="compile-servers" />
+  </target>
+
   <target name="test" depends="build">
     <ant antfile="test/build.xml" target="test" />
+  </target>
+
+  <target name="test-tcp" depends="build">
+    <ant antfile="test/build.xml" target="test-tcp" />
   </target>
 
 </project>

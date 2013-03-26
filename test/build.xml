@@ -8,10 +8,10 @@
 
   <target name="compile-test">
     <java
-      classname="BatchCompiler"
-      output="test/compiled-test.js"
-      errorproperty="java-errors"
-      fork="true"
+        classname="BatchCompiler"
+        output="test/compiled-test.js"
+        errorproperty="java-errors"
+        fork="true"
       >
       <arg value="${basedir}/test/test.js" />
       <classpath>
@@ -22,8 +22,14 @@
     <echo message="${java-errors}" />
   </target>
 
-  <target name="test" depends="compile-test">
+  <target name="input-tcp-args" unless="args">
+    <input
+      addProperty="server.tcp.args"
+      message="Enter server name and port: "
+    />
+  </target>
 
+  <target name="compile-servers">
     <mkdir dir="${build.dir}/server/classes" />
     <mkdir dir="${build.dir}/server/batch/classes" />
 
@@ -42,16 +48,32 @@
       includeantruntime="false"
     />
     <javac
-      classpathref="server.class.path"
-      destdir="${build.dir}/server/classes"
-      srcdir="test/server/src"
-      includeantruntime="false"
-    />
+        classpathref="server.class.path"
+        destdir="${build.dir}/server/classes"
+        srcdir="test/server/src"
+        includeantruntime="false">
+      <compilerarg value="-Xlint:unchecked"/>
+    </javac>
+  </target>
+
+  <target
+      name="test"
+      depends="compile-test, compile-servers">
     <java
-      classname="TestWebServer"
-      classpathref="server.class.path"
-      >
-      <arg value="${server.port}" />
+        classname="TestWebServer"
+        classpathref="server.class.path">
+      <arg value="${server.webSocket.port}" />
+    </java>
+  </target>
+
+  <target
+      name="test-tcp"
+      depends="compile-test, compile-servers, input-tcp-args">
+    <java
+        classname="TestWebServerWithTCP"
+        classpathref="server.class.path">
+      <arg value="${server.webSocket.port}" />
+      <arg line="${server.tcp.args}" />
     </java>
   </target>
 

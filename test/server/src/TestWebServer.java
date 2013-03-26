@@ -3,6 +3,7 @@ import java.net.InetSocketAddress;
 
 import batch.EvalService;
 import batch.json.JSONTransport;
+import batch.syntax.Eval;
 import batch.syntax.Evaluate;
 import batch.util.BatchTransport;
 import eval.BasicInterface;
@@ -24,13 +25,15 @@ public class TestWebServer {
     }
   }
 
-  private static BatchWebSocketServer<Evaluate, BasicInterface> runServer(int port, BatchTransport transport)
+  private static BatchWebSocketServer<Evaluate, BasicInterface> runServer(
+      int port,
+      BatchTransport transport)
       throws IOException {
     BasicObj root = new BasicObj(1000);
     EvalService<BasicInterface> service = new EvalService<BasicInterface>(root);
     BatchWebSocketServer<Evaluate, BasicInterface> server =
       new BatchWebSocketServer<Evaluate, BasicInterface>(
-        new InetSocketAddress(port), service, transport, new batch.syntax.Eval()
+        new InetSocketAddress(port), service, transport, new Eval()
       );
     server.start();
     return server;
