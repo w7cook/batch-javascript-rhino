@@ -230,7 +230,10 @@ public class Token
         GENEXPR        = 162,
         LAST_TOKEN     = 163,
 
-        BATCH          = 164;
+        BATCH          = 164,
+        BATCH_INLINE   = 165,
+        BATCH_REMOTE   = 166,
+        BATCH_LOCAL    = 167;
 
     /**
      * Returns a name for the token.  If Rhino is compiled with certain
@@ -416,6 +419,9 @@ public class Token
           case COMMENT:         return "COMMENT";
           case GENEXPR:         return "GENEXPR";
           case BATCH:           return "BATCH";
+          case BATCH_INLINE:    return "BATCH_INLINE";
+          case BATCH_REMOTE:    return "BATCH_REMOTE";
+          case BATCH_LOCAL:     return "BATCH_LOCAL";
         }
 
         // Token without name
@@ -463,6 +469,8 @@ public class Token
             case Token.THROW:      return "throw";
             case Token.TRY:        return "try";
             case Token.BATCH:      return "batch";
+            case Token.BATCH_REMOTE: return "remote";
+            case Token.BATCH_LOCAL:  return "local";
             default:               return null;
         }
     }

@@ -2,32 +2,23 @@ import org.mozilla.javascript.ast.*;
 
 import java.util.ArrayList;
 
-public class LoopGenerator extends AsyncJSGenerator {
+public class LoopGenerator extends CallbackManipulatorGenerator {
 
   private final String var;
-  private final AstNode collection;
   private final Generator bodyGen;
 
-  public LoopGenerator(String var, AstNode collection, Generator bodyGen) {
-    this(var, collection, bodyGen, null);
-  }
-
-  public LoopGenerator(
-      String var,
-      AstNode collection,
-      Generator bodyGen,
-      Function<AstNode, Generator> callback) {
-    super(callback);
+  public LoopGenerator(String var, Generator bodyGen) {
     this.var = var;
-    this.collection = collection;
     this.bodyGen = bodyGen;
   }
 
-  public AstNode Generate(final String _in, final String _out) {
+  @Override
+  public AstNode GenerateOn(
+      final String _in,
+      final String _out,
+      final Function<AstNode, AstNode> _returnFunction,
+      final Function<AstNode, Generator> _callback) {
     final LoopGenerator _loopGen = this;
-    if (!(collection instanceof JSPartitionFactory.EmptyNode)) {
-      return noimpl();
-    }
     final String _next = var+"_next";
     return JSUtil.genCall(
       JSUtil.genName(_in),
@@ -43,46 +34,61 @@ public class LoopGenerator extends AsyncJSGenerator {
                 public AstNode Generate(
                     String in,
                     String out,
-                    final AstNode _body) {
-                  return JSUtil.appendToBlock(
-                    _body,
-                    new FunctionCall() {{
-                      setTarget(JSUtil.genName(_next));
-                    }}
+                    Function<AstNode, AstNode> returnFunction,
+                    AstNode _) {
+                  return JSUtil.genCall(
+                    JSUtil.genName(_next),
+                    JSUtil.genFalse(),
+                    JSUtil.genUndefined()
                   );
                 }
               }).Generate(
                 _in  != null ? _loopGen.var : null,
-                _out != null ? _loopGen.var : null
+                _out != null ? _loopGen.var : null,
+                _returnFunction == null
+                  ? null
+                  : new Function<AstNode, AstNode>() {
+                      public AstNode call(AstNode result) {
+                        return JSUtil.genCall(
+                          JSUtil.genName(_next),
+                          JSUtil.genTrue(),
+                          result
+                        );
+                      }
+                    }
               )
             )
           );
         }});
+        final AstNode _callbackCode = 
+          _callback != null
+            ? JSUtil.genBlock(
+                _callback
+                  .call(null)
+                  .Generate(_in, _out, _returnFunction)
+              )
+            : JSUtil.concatBlocks();
         add(new FunctionNode() {{
+          addParam(JSUtil.genName("isReturning$"));
+          addParam(JSUtil.genName("value$"));
           setBody(
-            _loopGen.callback != null
-              ? JSUtil.genBlock(
-                  _loopGen.callback.call(new EmptyExpression())
-                    .Generate(_in, _out)
-                )
-              : new Block()
+            JSUtil.genBlock(
+              _returnFunction == null
+                ? _callbackCode
+                :  new IfStatement() {{
+                     setCondition(JSUtil.genName("isReturning$"));
+                     setThenPart(
+                       JSUtil.genBlock(
+                       _returnFunction.call(JSUtil.genName("value$"))
+                       )
+                     );
+                     setElsePart(_callbackCode);
+                   }}
+            )
           );
         }});
       }}
     );
-  }
-
-  public LoopGenerator cloneFor(Function<AstNode, Generator> newCallback) {
-    return new LoopGenerator(
-      this.var,
-      this.collection,
-      this.bodyGen,
-      newCallback
-    );
-  }
-
-  private static <E> E noimpl() {
-    throw new RuntimeException("Not yet implemented");
   }
 }
 

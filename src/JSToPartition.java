@@ -1,39 +1,55 @@
 import org.mozilla.javascript.Token;
+import org.mozilla.javascript.Node;
 import org.mozilla.javascript.ast.*;
 
 import batch.Op;
 import batch.partition.*;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 public class JSToPartition<E> {
-  private PartitionFactory<E> factory;
-  private String root;
+  private final PartitionFactory<E> factory;
+  private final String root;
+  private boolean isReturnRemote;
+  private final Map<String, DynamicCallInfo> batchFunctionsInfo;
 
-  public JSToPartition(PartitionFactory<E> factory, String root) {
+  public JSToPartition(
+      PartitionFactory<E> factory,
+      String root,
+      boolean isReturnRemote,
+      Map<String, DynamicCallInfo> batchFunctionsInfo) {
+    this.isReturnRemote = isReturnRemote;
     this.factory = factory;
     this.root = root;
+    this.batchFunctionsInfo = batchFunctionsInfo;
   }
 
   public E exprFrom(AstNode node) {
     if (node == null) {
       return factory.Skip();
     }
+    // paper TODO dates, true, false, ?:
     switch (node.getType()) {
       case Token.BLOCK:
-        return exprFromScope((Scope)node);
+        return exprFromBlock(node); // may be Block or Scope
       case Token.CALL:
         return exprFromFunctionCall((FunctionCall)node);
       case Token.EXPR_RESULT:
-      case Token.EXPR_VOID:
+      case Token.EXPR_VOID: // TODO: LabledExpression
         return exprFromExpressionStatement((ExpressionStatement)node);
       case Token.NAME:
         return exprFromName((Name)node);
       // Binary operators
       // Note: AND and OR are not listed here, since they carry a different
+      // paper TODO basic implementation of AND, OR, NOT
+	    //   AVG, MIN, MAX, COUNT, // aggregation
+	    //   ASC, DESC, // sorting
+	    //   GROUP; // mapping and grouping
       // meaning in javascript
       case Token.ADD:
       case Token.SUB:
@@ -68,9 +84,23 @@ public class JSToPartition<E> {
         );
       case Token.IF:
         return exprFromIfStatement((IfStatement)node);
+      case Token.FUNCTION:
+        return exprFromFunctionNode((FunctionNode)node);
+      case Token.RETURN:
+        return exprFromReturnStatement((ReturnStatement)node);
+      case Token.EMPTY:
+        return factory.Skip();
+      case Token.BATCH_INLINE:
+        return exprFromBatchInlineLambda((BatchInline)node);
+      case Token.LP:
+        return exprFrom(((ParenthesizedExpression)node).getExpression());
+      case Token.HOOK:
+        return exprFromConditionalExpression((ConditionalExpression)node);
+      case Token.GETPROP:
+        return exprFromPropertyGet((PropertyGet)node);
       default:
-        System.out.println("INCOMPLETE: "+Token.typeToName(node.getType())+" "+node.getClass().getName());
-        return noimpl();
+        System.err.println("INCOMPLETE: "+Token.typeToName(node.getType())+" "+node.getClass().getName());
+        return JSUtil.noimpl();
     }
   }
 
@@ -82,16 +112,16 @@ public class JSToPartition<E> {
     return exprs;
   }
 
-  private E convertSequence(Iterator<AstNode> nodes) {
+  private E convertSequence(Iterator<Node> nodes) {
     LinkedList<E> sequence = new LinkedList<E>();
     while (nodes.hasNext()) {
-      AstNode node = nodes.next();
+      AstNode node = (AstNode)nodes.next();
       switch (node.getType()) {
         case Token.VAR:
           sequence.addLast(
             exprFromVariableDeclaration(
               (VariableDeclaration)node,
-              convertSequence(nodes) // Note: surrounding loop will end since
+              convertSequence(nodes) // Note: while loop will end since
                                      // recursive call will finish going
                                      // through the iterator
             )
@@ -101,19 +131,42 @@ public class JSToPartition<E> {
           sequence.addLast(exprFrom(node));
       }
     }
-    return factory.Prim(Op.SEQ, sequence);
+    // Must reduce here so that CodeModel will optimize inner
+    // single branch if statements
+    switch (sequence.size()) {
+      case 0:
+        return factory.Skip();
+      case 1:
+        return factory.setExtra(sequence.get(0), JSMarkers.STATEMENT);
+      default:
+        return factory.Prim(Op.SEQ, sequence);
+    }
   }
 
-  private <E> E noimpl() {
-    throw new RuntimeException("Not yet implemented");
-  }
-
-  private E exprFromScope(Scope scope) {
-    return convertSequence(scope.getStatements().iterator());
+  private E exprFromBlock(AstNode block) {
+    return convertSequence(block.iterator());
   }
 
   private E exprFromExpressionStatement(ExpressionStatement statement) {
     return exprFrom(statement.getExpression());
+  }
+
+  private DynamicCallInfo getBatchFunctionInfo(String funcName) {
+    if (funcName != null && batchFunctionsInfo.containsKey(funcName)) {
+      return batchFunctionsInfo.get(funcName);
+    } else {
+      if (funcName != null) {
+        throw new Error(
+          "Batch call to <" + funcName + "> does not correspond to "
+          + "a batch function of that name"
+        );
+      } else {
+        // Should not occur on ast coming from the parser
+        throw new Error(
+          "batch keyword used incorrectly"
+        );
+      }
+    }
   }
 
   private E exprFromFunctionCall(FunctionCall call) {
@@ -126,17 +179,29 @@ public class JSToPartition<E> {
           propGet.getProperty().getIdentifier(),
           mapExprFrom(call.getArguments())
         );
+      case Token.BATCH_INLINE:
+        String funcName = JSUtil.identifierOf(
+          ((BatchInline)target).getFunctionName()
+        );
+        return factory.setExtra(
+          factory.DynamicCall(
+            factory.Skip(),
+            funcName,
+            mapExprFrom(call.getArguments())
+          ),
+          getBatchFunctionInfo(funcName)
+        );
       default:
-        return noimpl();
+        return JSUtil.noimpl();
     }
   }
 
   private E exprFromName(Name nameNode) {
     String name = nameNode.getIdentifier();
-    if (name.equals(root)) { // TODO: inner scopes
-      return factory.Var(factory.RootName());
+    if (root != null && name.equals(root)) { // TODO: inner scopes
+      return factory.Root();
     } else if (name.equals(factory.RootName())) {
-      return noimpl(); // TODO: avoid collisions
+      return JSUtil.noimpl(); // TODO: avoid collisions
     } else {
       return factory.Var(name);
     }
@@ -157,7 +222,7 @@ public class JSToPartition<E> {
       case Token.LE:  binOp = Op.LE;  break;
       case Token.GE:  binOp = Op.GE;  break;
       default:
-        return noimpl();
+        return JSUtil.noimpl();
     }
     return factory.Prim(
       binOp,
@@ -192,16 +257,16 @@ public class JSToPartition<E> {
       case Token.ASSIGN_RSH:
       case Token.ASSIGN_SUB:
       case Token.ASSIGN_URSH:
-        return noimpl();
+        return JSUtil.noimpl();
       default:
-        return noimpl();
+        return JSUtil.noimpl();
     }
   }
 
   private E exprFromForInLoop(ForInLoop loop) {
     if (loop.isForEach()) {
       return factory.Loop(
-        mustIdentifierOf(loop.getIterator()),
+        JSUtil.mustIdentifierOf(loop.getIterator()),
         exprFrom(loop.getIteratedObject()),
         exprFrom(loop.getBody())
       );
@@ -219,16 +284,16 @@ public class JSToPartition<E> {
       for (VariableInitializer init : inits) {
         E initialValue = init.getInitializer() != null
           ? exprFrom(init.getInitializer())
-          : this.<E>noimpl();
+          : JSUtil.<E>noimpl();
         result = factory.Let(
-          identifierOf(init.getTarget()),
+          JSUtil.identifierOf(init.getTarget()),
           initialValue,
           result
         );
       }
       return result;
     } else {
-      String identifier = identifierOf(decl);
+      String identifier = JSUtil.identifierOf(decl);
       if (identifier == null) {
         return exprFromOther(decl);
       } else {
@@ -238,46 +303,80 @@ public class JSToPartition<E> {
   }
 
   private E exprFromIfStatement(IfStatement ifStmt) {
-    // TODO: work for non boolean conditionals,
-    // like strings, numbers, undefined, null, and objects.
+    return factory.setExtra(
+      factory.If(
+        exprFrom(ifStmt.getCondition()),
+        exprFrom(ifStmt.getThenPart()),
+        exprFrom(ifStmt.getElsePart())
+      ),
+      JSMarkers.IF_STATEMENT
+    );
+  }
+
+  private E exprFromConditionalExpression(ConditionalExpression expr) {
     return factory.If(
-      exprFrom(ifStmt.getCondition()),
-      exprFrom(ifStmt.getThenPart()),
-      exprFrom(ifStmt.getElsePart())
+      exprFrom(expr.getTestExpression()),
+      exprFrom(expr.getTrueExpression()),
+      exprFrom(expr.getFalseExpression())
+    );
+  }
+
+  private E exprFromFunctionNode(FunctionNode func) {
+    switch (func.getParams().size()) {
+      case 1:
+        boolean parentIsReturnRemote = isReturnRemote;
+        isReturnRemote = true;
+        E e = factory.Fun(
+          JSUtil.mustIdentifierOf(func.getParams().get(0)),
+          exprFrom(func.getBody())
+        );
+        isReturnRemote = parentIsReturnRemote;
+        return e; 
+      default:
+        return JSUtil.noimpl();
+    }
+  }
+
+  private E exprFromReturnStatement(ReturnStatement ret) {
+    if (isReturnRemote) {
+      return factory.setExtra(exprFrom(ret.getReturnValue()), JSMarkers.RETURN);
+    } else {
+      return factory.Other(JSMarkers.RETURN, exprFrom(ret.getReturnValue()));
+    }
+  }
+
+  private E exprFromPropertyGet(PropertyGet prop) {
+    return factory.Prop(
+      exprFrom(prop.getTarget()),
+      prop.getProperty().getIdentifier()
+    );
+  }
+
+  private E exprFromBatchInlineLambda(BatchInline inline) {
+    String funcName = JSUtil.identifierOf(inline.getFunctionName());
+    DynamicCallInfo info = getBatchFunctionInfo(funcName);
+    if (info.returns != Place.REMOTE) {
+      throw new Error("Inlined batch lambdas must return remote values");
+    }
+    if (info.arguments.size() != 1 || info.arguments.get(0) != Place.REMOTE) {
+      throw new Error("Inlined batch lambdas must take exactly 1 remote value");
+    }
+    return factory.Fun(
+      "arg",
+      factory.setExtra(
+        factory.DynamicCall(
+          factory.Skip(),
+          funcName,
+          new ArrayList<E>() {{
+            add(factory.Var("arg"));
+          }}
+        ),
+        getBatchFunctionInfo(funcName)
+      )
     );
   }
 
   private E exprFromOther(AstNode node) {
-    return noimpl();
-  }
-
-  private String identifierOf(AstNode node) {
-    switch (node.getType()) {
-      case Token.NAME:
-        return ((Name)node).getIdentifier();
-      case Token.VAR:
-        VariableDeclaration decl = (VariableDeclaration)node;
-        List<VariableInitializer> inits = decl.getVariables();
-        if (inits.size() == 1) {
-          VariableInitializer init = inits.get(0);
-          if (init.getInitializer() == null && !init.isDestructuring()) {
-            return identifierOf(init.getTarget());
-          } else {
-            return null;
-          }
-        } else {
-          return null;
-        }
-      default:
-        return null;
-    }
-  }
-
-  private String mustIdentifierOf(AstNode node) {
-    String identifier = identifierOf(node);
-    if (identifier == null) {
-      return noimpl();
-    }
-    return identifier;
+    return JSUtil.noimpl();
   }
 }

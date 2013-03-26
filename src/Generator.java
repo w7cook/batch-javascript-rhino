@@ -3,18 +3,25 @@ import org.mozilla.javascript.ast.AstNode;
 import batch.partition.ExtraInfo;
 
 abstract public class Generator implements ExtraInfo<Generator> {
-  Object extraInfo;
+  protected Object extraInfo;
 
   public Generator setExtra(Object info) {
     extraInfo = info;
     return this;
   }
 
-  abstract public AstNode Generate(String remoteIn, String remoteOut);
+  abstract public AstNode Generate(
+      String remoteIn,
+      String remoteOut,
+      Function<AstNode, AstNode> returnFunction
+    );
 
   public static Generator Return(final AstNode _r) {
     return new Generator() {
-      public AstNode Generate(String in, String out) {
+      public AstNode Generate(
+          String in,
+          String out,
+          Function<AstNode, AstNode> returnFunction) {
         return _r;
       }
     };
@@ -23,8 +30,12 @@ abstract public class Generator implements ExtraInfo<Generator> {
   public Generator Bind(final Function<AstNode, Generator> _f) {
     final Generator _param = this;
     return new Generator() {
-      public AstNode Generate(String in, String out) {
-        return _f.call(_param.Generate(in, out)).Generate(in, out);
+      public AstNode Generate(
+          String in,
+          String out,
+          Function<AstNode, AstNode> returnFunction) {
+        return _f.call(_param.Generate(in, out, returnFunction))
+                 .Generate(in, out, returnFunction);
       }
       public Generator Bind(final Function<AstNode, Generator> _g) {
         return _param.Bind(new Function<AstNode, Generator>() {
@@ -34,10 +45,6 @@ abstract public class Generator implements ExtraInfo<Generator> {
         });
       }
     };
-  }
-
-  private static <E> E noimpl() {
-    throw new RuntimeException("Not yet implemented");
   }
 }
 
