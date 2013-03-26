@@ -15,7 +15,7 @@ batch function remote isSoldOut(remote product) {
 }
 
 batch (var db in __BATCH_SERVICE__) {
-  for each (var product in db.Products) {
+  for each (var product in db.Products.orderBy(function(x){return x.ProductName;})) {
     if (batch isSoldOut(product)) {
       page.putText(product.ProductName + " is sold out!")
     }
