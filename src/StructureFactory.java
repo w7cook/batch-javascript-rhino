@@ -9,26 +9,33 @@ public class StructureFactory implements PartitionFactory<StructureFactory.Item>
   public static class Item {
     public final Tag tag;
     public final Object value;
+    public final Object extraKey;
     public final Object extraInfo;
     public final Item[] args;
 
-    private Item(Tag tag, Object value, Object extraInfo, Item... args) {
+    private Item(
+        Tag tag,
+        Object value,
+        Object extraKey,
+        Object extraInfo,
+        Item... args) {
       this.tag = tag;
       this.value = value;
+      this.extraKey = extraKey;
       this.extraInfo = extraInfo;
       this.args = args;
     }
 
     public static Item Raw(Object value) {
-      return new Item(Tag.RAW, value, null);
+      return new Item(Tag.RAW, value, null, null);
     }
 
     public Item(Tag tag, Item... args) {
-      this(tag, null, null, args);
+      this(tag, null, null, null, args);
     }
 
-    public Item(Item i, Object extraInfo) {
-      this(i.tag, i.value, extraInfo, i.args);
+    public Item(Item i, Object extraKey, Object extraInfo) {
+      this(i.tag, i.value, extraKey, extraInfo, i.args);
     }
     
     public boolean equals(Object o) {
@@ -40,6 +47,8 @@ public class StructureFactory implements PartitionFactory<StructureFactory.Item>
             || other.tag.equals(Tag.ANY)
             || (
                  tag.equals(other.tag)
+              && (extraKey==other.extraKey
+                  || (extraKey != null && extraKey.equals(other.extraKey)))
               && (extraInfo==other.extraInfo
                   || (extraInfo != null && extraInfo.equals(other.extraInfo)))
               && (value==other.value
@@ -63,8 +72,8 @@ public class StructureFactory implements PartitionFactory<StructureFactory.Item>
         }
       }
       s += ")";
-      if (extraInfo != null) {
-        s += ".setExtra(" + extraInfo + ")";
+      if (extraKey != null) {
+        s += ".setExtra(" + extraKey + ", " + extraInfo + ")";
       }
       return s;
     }
@@ -243,8 +252,8 @@ public class StructureFactory implements PartitionFactory<StructureFactory.Item>
   }
 	
   @Override
-	public Item setExtra(Item exp, Object extra) {
-    return new Item(exp, extra);
+	public Item setExtra(Item exp, Object key, Object info) {
+    return new Item(exp, key, info);
   }
 
 }

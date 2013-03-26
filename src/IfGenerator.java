@@ -109,7 +109,7 @@ public class IfGenerator extends CallbackManipulatorGenerator {
                     _callback
                       .call(
                         // only pass value if this is not a statement
-                        JSMarkers.IF_STATEMENT.equals(_ifGen.extraInfo)
+                        _ifGen.extras.get(JSMarkers.IF_STATEMENT) == true
                           ? null
                           : JSUtil.genName("value$")
                       )

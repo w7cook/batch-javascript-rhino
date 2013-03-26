@@ -2,11 +2,14 @@ import org.mozilla.javascript.ast.AstNode;
 
 import batch.partition.ExtraInfo;
 
-abstract public class Generator implements ExtraInfo<Generator> {
-  protected Object extraInfo;
+import java.util.HashMap;
+import java.util.Map;
 
-  public Generator setExtra(Object info) {
-    extraInfo = info;
+abstract public class Generator implements ExtraInfo<Generator> {
+  protected Map<Object,Object> extras = new HashMap<Object,Object>();
+
+  public Generator setExtra(Object key, Object info) {
+    extras.put(key, info);
     return this;
   }
 

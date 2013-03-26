@@ -185,7 +185,7 @@ class JSScriptConstructor extends PartitionFactoryHelper<AstNode> {
   }
 
   @Override
-  public AstNode setExtra(AstNode exp, Object extra) {
+  public AstNode setExtra(AstNode exp, Object key, Object info) {
     return exp;
   }
 

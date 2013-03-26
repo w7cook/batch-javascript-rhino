@@ -137,7 +137,7 @@ public class JSToPartition<E> {
       case 0:
         return factory.Skip();
       case 1:
-        return factory.setExtra(sequence.get(0), JSMarkers.STATEMENT);
+        return factory.setExtra(sequence.get(0), JSMarkers.STATEMENT, true);
       default:
         return factory.Prim(Op.SEQ, sequence);
     }
@@ -189,6 +189,7 @@ public class JSToPartition<E> {
             funcName,
             mapExprFrom(call.getArguments())
           ),
+          DynamicCallInfo.TYPE_INFO_KEY,
           getBatchFunctionInfo(funcName)
         );
       default:
@@ -309,7 +310,8 @@ public class JSToPartition<E> {
         exprFrom(ifStmt.getThenPart()),
         exprFrom(ifStmt.getElsePart())
       ),
-      JSMarkers.IF_STATEMENT
+      JSMarkers.IF_STATEMENT,
+      true
     );
   }
 
@@ -339,7 +341,11 @@ public class JSToPartition<E> {
 
   private E exprFromReturnStatement(ReturnStatement ret) {
     if (isReturnRemote) {
-      return factory.setExtra(exprFrom(ret.getReturnValue()), JSMarkers.RETURN);
+      return factory.setExtra(
+        exprFrom(ret.getReturnValue()),
+        JSMarkers.RETURN,
+        true
+      );
     } else {
       return factory.Other(JSMarkers.RETURN, exprFrom(ret.getReturnValue()));
     }
@@ -371,6 +377,7 @@ public class JSToPartition<E> {
             add(factory.Var("arg"));
           }}
         ),
+        DynamicCallInfo.TYPE_INFO_KEY,
         getBatchFunctionInfo(funcName)
       )
     );

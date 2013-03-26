@@ -155,8 +155,8 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
   }
 
   @Override
-  public Generator setExtra(Generator exp, Object extra) {
-    return rawJSFactory.setExtra(exp, extra);
+  public Generator setExtra(Generator exp, Object extraKey, Object extraInfo) {
+    return rawJSFactory.setExtra(exp, extraKey, extraInfo);
   }
 
   @Override

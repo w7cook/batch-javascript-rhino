@@ -191,7 +191,7 @@ public class RawJSFactory extends PartitionFactoryHelper<Generator> {
               _thenExprGen.Generate(_in,_out,_returnFunction);
             final AstNode _elseExpr =
               _elseExprGen.Generate(_in,_out,_returnFunction);
-            if (JSMarkers.IF_STATEMENT.equals(_this.extraInfo)) {
+            if (_this.extras.get(JSMarkers.IF_STATEMENT) == true) {
               return new IfStatement() {{
                 setCondition(_condition);
                 setThenPart(_thenExpr);
@@ -325,22 +325,22 @@ public class RawJSFactory extends PartitionFactoryHelper<Generator> {
   }
 
   @Override
-  public Generator setExtra(Generator exp, Object extra) {
-    if (JSMarkers.RETURN.equals(extra)) {
+  public Generator setExtra(Generator exp, Object extraKey, Object extraInfo) {
+    if (extraKey == JSMarkers.RETURN && extraInfo == true) {
       return exp.Bind(new Function<AstNode, Generator>() {
         public Generator call(AstNode result) {
           return new ReturnGenerator(result);
         }
       });
     }
-    if (JSMarkers.STATEMENT.equals(extra)) {
+    if (extraKey == JSMarkers.STATEMENT && extraInfo == true) {
       return exp.Bind(new Function<AstNode, Generator>() {
         public Generator call(AstNode result) {
           return new SequenceGenerator(result);
         }
       });
     }
-    return exp.setExtra(extra);
+    return exp.setExtra(extraKey, extraInfo);
   }
 
 
