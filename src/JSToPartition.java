@@ -117,14 +117,14 @@ public class JSToPartition<E> {
 
   private E convertSequence(Iterator<Node> nodes) {
     LinkedList<E> sequence = new LinkedList<E>();
-    while (nodes.hasNext()) {
+    if (nodes.hasNext()) {
       AstNode node = (AstNode)nodes.next();
       switch (node.getType()) {
         case Token.VAR:
           sequence.addLast(
             exprFromVariableDeclaration(
               (VariableDeclaration)node,
-              convertSequence(nodes) // Note: surrounding loop will end since
+              convertSequence(nodes) // Note: node iterator will end since
                                      // recursive call will finish going
                                      // through the iterator
             )
@@ -134,7 +134,16 @@ public class JSToPartition<E> {
           sequence.addLast(exprFrom(node));
       }
     }
-    return factory.Prim(Op.SEQ, sequence);
+    // Must reduce here so that CodeModel will optimize inner
+    // single branch if statements
+    switch (sequence.size()) {
+      case 0:
+        return factory.Skip();
+      case 1:
+        return sequence.get(0);
+      default:
+        return factory.Prim(Op.SEQ, sequence);
+    }
   }
 
   private E exprFromBlock(AstNode block) {
