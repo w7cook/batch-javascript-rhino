@@ -137,7 +137,7 @@ public class JSToPartition<E> {
       case 0:
         return factory.Skip();
       case 1:
-        return sequence.get(0);
+        return factory.setExtra(sequence.get(0), JSMarkers.STATEMENT);
       default:
         return factory.Prim(Op.SEQ, sequence);
     }

@@ -333,6 +333,13 @@ public class RawJSFactory extends PartitionFactoryHelper<Generator> {
         }
       });
     }
+    if (JSMarkers.STATEMENT.equals(extra)) {
+      return exp.Bind(new Function<AstNode, Generator>() {
+        public Generator call(AstNode result) {
+          return new SequenceGenerator(result);
+        }
+      });
+    }
     return exp.setExtra(extra);
   }
 
