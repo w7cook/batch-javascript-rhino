@@ -164,7 +164,7 @@ public class BatchCompiler implements NodeVisitor {
               .action()
               .runExtra(new JSPartitionFactory(batchFunctionsInfo));
             if (preNode == null && script == null) {
-              preNode = local.Generate(null, "s$", preventReturning);
+              preNode = local.Generate(null, "s$", null);
             } else {
               postNode = local
                 .Bind(Function.<AstNode,Generator>Const(
@@ -315,7 +315,7 @@ public class BatchCompiler implements NodeVisitor {
             AstNode local = stage
               .action()
               .runExtra(new JSPartitionFactory(batchFunctionsInfo))
-              .Generate("r$", "s$", preventReturning);
+              .Generate("r$", "s$", null);
             if (preNode == null && script == null) {
               preNode = local;
             } else {
@@ -386,11 +386,4 @@ public class BatchCompiler implements NodeVisitor {
       default: throw new Error("Invalid place: "+place);
     }
   }
-
-  private static final Function<AstNode, AstNode> preventReturning =
-    new Function<AstNode, AstNode>() {
-      public AstNode call(AstNode result) {
-        throw new Error("Invalid return in batch expression");
-      }
-    };
 }

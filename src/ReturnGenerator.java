@@ -12,6 +12,8 @@ public class ReturnGenerator extends Generator {
       String in,
       String out,
       Function<AstNode, AstNode> returnFunction) {
+    if (returnFunction == null) 
+      throw new Error("Invalid return statement in batch");
     return returnFunction.call(result);
   }
 

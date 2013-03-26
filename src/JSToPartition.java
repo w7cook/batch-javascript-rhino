@@ -99,6 +99,8 @@ public class JSToPartition<E> {
         return exprFrom(((ParenthesizedExpression)node).getExpression());
       case Token.HOOK:
         return exprFromConditionalExpression((ConditionalExpression)node);
+      case Token.GETPROP:
+        return exprFromPropertyGet((PropertyGet)node);
       default:
         System.err.println("INCOMPLETE: "+Token.typeToName(node.getType())+" "+node.getClass().getName());
         return JSUtil.noimpl();
@@ -327,6 +329,13 @@ public class JSToPartition<E> {
     } else {
       return factory.Other(JSMarkers.RETURN, exprFrom(ret.getReturnValue()));
     }
+  }
+
+  private E exprFromPropertyGet(PropertyGet prop) {
+    return factory.Prop(
+      exprFrom(prop.getTarget()),
+      prop.getProperty().getIdentifier()
+    );
   }
 
   private E exprFromOther(AstNode node) {
