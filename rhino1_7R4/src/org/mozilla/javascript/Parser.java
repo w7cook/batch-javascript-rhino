@@ -697,8 +697,17 @@ public class Parser
                 defineSymbol(Token.LP, pname, false);
                 destructuring.put(pname, expr);
             } else {
+                BatchPlace place = BatchPlace.fromToken(peekToken());
+                if (place != null) {
+                  consumeToken();
+                }
+                int placePos = ts.tokenBeg;
                 if (mustMatchToken(Token.NAME, "msg.no.parm")) {
-                    fnNode.addParam(createNameNode());
+                    AstNode param = createNameNode();
+                    if (place != null) {
+                      param = new BatchParam(placePos, place, param);
+                    }
+                    fnNode.addParam(param);
                     String paramName = ts.getString();
                     defineSymbol(Token.LP, paramName);
                     if (this.inUseStrictDirective) {
@@ -959,7 +968,7 @@ public class Parser
               return forLoop();
 
           case Token.BATCH:
-              return batchLoop();
+              return batchRoot();
 
           case Token.TRY:
               return tryStatement();
@@ -1331,12 +1340,53 @@ public class Parser
         return pn;
     }
 
-    private Loop batchLoop()
+    private AstNode batchRoot()
         throws IOException
     {
         if (currentToken != Token.BATCH) codeBug();
         consumeToken();
         int batchPos = ts.tokenBeg, lineno = ts.lineno;
+        if (matchToken(Token.FUNCTION)) {
+          return batchFunction(batchPos, lineno);
+        } else if (peekToken() == Token.LP) {
+          return batchLoop(batchPos, lineno);
+        } else {
+          return batchInline(batchPos, lineno);
+        }
+    }
+
+    private BatchFunction batchFunction(int batchPos, int lineno)
+        throws IOException
+    {
+      int place = nextToken();
+      if (BatchPlace.fromToken(place) == null) {
+        reportError("msg.no.place.batch.function");
+      }
+      BatchFunction bf = new BatchFunction(
+        batchPos,
+        place,
+        function(FunctionNode.FUNCTION_EXPRESSION_STATEMENT)
+      );
+      bf.setLineno(lineno);
+      return bf;
+    }
+
+    private AstNode batchInline(int batchPos, int lineno)
+        throws IOException
+    {
+      peekToken();
+      BatchInline bi = new BatchInline(
+        batchPos,
+        createNameNode()
+      );
+      bi.setLineno(lineno);
+      consumeToken();
+      return memberExprTail(true, bi);
+    }
+
+    private Loop batchLoop(int batchPos, int lineno)
+        throws IOException
+    {
         boolean hasIn = false;
         int inPos = -1, lp = -1, rp = -1;
         AstNode init = null;  // init is also foo in 'foo in object'
@@ -2364,6 +2414,11 @@ public class Parser
           case Token.ERROR:
               consumeToken();
               return makeErrorNode();
+
+          case Token.BATCH:
+              int batchPos = ts.tokenBeg;
+              consumeToken();
+              return batchInline(batchPos, line);
 
           case Token.LT:
               // XML stream encountered in expression.

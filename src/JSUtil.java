@@ -1,3 +1,4 @@
+import org.mozilla.javascript.Node;
 import org.mozilla.javascript.Token;
 import org.mozilla.javascript.ast.*;
 
@@ -27,21 +28,44 @@ public class JSUtil {
       final AstNode _expression,
       final AstNode _body) {
     return new Scope() {{
-      addChild(new ExpressionStatement(genDeclare(_var, _expression)));
+      addChild(genDeclare(_var, _expression));
       addChild(_body);
     }};
   }
 
-  public static VariableDeclaration genDeclare(
+  public static VariableDeclaration genDeclareExpr(final String _var) {
+    return new VariableDeclaration() {{
+      addVariable(new VariableInitializer() {{
+        setNodeType(Token.VAR);
+        setTarget(JSUtil.genName(_var));
+      }});
+    }};
+  }
+
+  public static VariableDeclaration genDeclareExpr(
       final String _var,
       final AstNode _init) {
     return new VariableDeclaration() {{
       addVariable(new VariableInitializer() {{
         setNodeType(Token.VAR);
-        setTarget(new Name(0, _var));
+        setTarget(JSUtil.genName(_var));
         setInitializer(_init);
       }});
     }};
+  }
+
+  public static VariableDeclaration genDeclare(String var) {
+    VariableDeclaration declareExpr = genDeclareExpr(var);
+    declareExpr.setIsStatement(true);
+    // Don't want to wrap in ExpressionStatement, ends up with double semicolons
+    return declareExpr;
+  }
+
+  public static VariableDeclaration genDeclare(String var, AstNode init) {
+    VariableDeclaration declareExpr = genDeclareExpr(var, init);
+    declareExpr.setIsStatement(true);
+    // Don't want to wrap in ExpressionStatement, ends up with double semicolons
+    return declareExpr;
   }
 
   public static AstNode genCall(
@@ -54,6 +78,44 @@ public class JSUtil {
     }};
   }
 
+  public static AstNode genCall(
+      final AstNode _target,
+      final String _method,
+      final AstNode... _args) {
+    return new FunctionCall() {{
+      setTarget(new PropertyGet(_target, genName(_method)));
+      for (AstNode arg : _args) {
+        addArgument(arg);
+      }
+    }};
+  }
+
+  public static AstNode genCall(
+      final AstNode _function,
+      final AstNode... _args) {
+    return new FunctionCall() {{
+      setTarget(_function);
+      for (AstNode arg : _args) {
+        addArgument(arg);
+      }
+    }};
+  }
+
+  public static AstNode genCall(
+      final AstNode _function,
+      final List<AstNode> _args) {
+    return new FunctionCall() {{
+      setTarget(_function);
+      setArguments(_args);
+    }};
+  }
+
+  public static AstNode genArray(final List<AstNode> _args) {
+    return new ArrayLiteral() {{
+      setElements(_args);
+    }};
+  }
+
   public static AstNode genStatement(AstNode node) {
     switch (node.getType()) {
       case Token.BLOCK:
@@ -61,48 +123,121 @@ public class JSUtil {
       case Token.EXPR_RESULT:
       case Token.IF:
         return node;
+      case Token.VAR:
+        if (((VariableDeclaration)node).isStatement()) {
+          return node;
+        }
+        // fallthrough
       default:
         return new ExpressionStatement(node);
     }
   }
 
   public static Block genBlock(final AstNode _node) {
-    switch (_node.getType()) {
-      case Token.BLOCK:
-        return (Block)_node;
-      default:
-        return new Block() {{
-          addStatement(JSUtil.genStatement(_node));
-        }};
+    if (_node instanceof Block) {
+      return (Block)_node;
+    } else {
+      return new Block() {{
+        addStatement(JSUtil.genStatement(_node));
+      }};
     }
   }
 
-  public static Block appendToBlock(AstNode maybeBlock, AstNode node) {
-    Block block = JSUtil.genBlock(maybeBlock);
-    if (!JSUtil.isEmpty(node)) {
-      block.addStatement(JSUtil.genStatement(node));
+  public static Block concatBlocks(AstNode... nodes) {
+    Block b = new Block();
+    for (AstNode node : nodes) {
+      if (!JSUtil.isEmpty(node)) {
+        for (Node stmt : JSUtil.genBlock(node)) {
+          b.addStatement((AstNode)stmt);
+        }
+      }
     }
-    return block;
-  }
-
-  public static Block prependToBlock(AstNode node, AstNode maybeBlock) {
-    Block block = JSUtil.genBlock(maybeBlock);
-    if (!JSUtil.isEmpty(node)) {
-      block.addChildToFront(JSUtil.genStatement(node));
-    }
-    return block;
+    return b;
   }
 
   public static boolean isEmpty(AstNode node) {
+    if (node == null) {
+      return true;
+    }
     switch (node.getType()) {
+      case Token.BLOCK:
+        for (Node inner : node) {
+          if (!isEmpty((AstNode)inner)) {
+            return false;
+          }
+        }
+        return true;
       case Token.EMPTY:
         return true;
       case Token.EXPR_VOID:
       case Token.EXPR_RESULT:
-        System.out.println("HIT");
         return JSUtil.isEmpty(((ExpressionStatement)node).getExpression());
       default:
         return false;
     }
+  }
+
+  public static InfixExpression genInfix(int type, AstNode... args) {
+    InfixExpression ie = new InfixExpression(
+      type,
+      args[0],
+      args[1],
+      0
+    );
+    for (int i=2; i<args.length; i++) {
+      ie = new InfixExpression(
+        type,
+        ie,
+        args[i],
+        0
+      );
+    }
+    return ie;
+  }
+
+  public static KeywordLiteral genTrue() {
+    return new KeywordLiteral().setType(Token.TRUE);
+  }
+
+  public static KeywordLiteral genFalse() {
+    return new KeywordLiteral().setType(Token.FALSE);
+  }
+
+  public static Name genUndefined() {
+    return JSUtil.genName("undefined");
+  }
+
+  public static String identifierOf(AstNode node) {
+    switch (node.getType()) {
+      case Token.NAME:
+        return ((Name)node).getIdentifier();
+      case Token.VAR:
+        VariableDeclaration decl = (VariableDeclaration)node;
+        List<VariableInitializer> inits = decl.getVariables();
+        if (inits.size() == 1) {
+          VariableInitializer init = inits.get(0);
+          if (init.getInitializer() == null && !init.isDestructuring()) {
+            return identifierOf(init.getTarget());
+          } else {
+            return null;
+          }
+        } else {
+          return null;
+        }
+      default:
+        return null;
+    }
+  }
+
+  public static String mustIdentifierOf(AstNode node) {
+    String identifier = identifierOf(node);
+    if (identifier == null) {
+      return noimpl();
+    }
+    return identifier;
+  }
+
+  public static <E> E noimpl() {
+    throw new RuntimeException("Not yet implemented");
   }
 }
