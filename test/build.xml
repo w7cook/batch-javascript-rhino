@@ -1,4 +1,4 @@
-<project name="test" default="compile-test" basedir="..">
+<project name="test" basedir="..">
   <property file="build.properties" />
 
   <target name="clean">
@@ -6,7 +6,7 @@
     <delete dir="${build.dir}/server" />
   </target>
 
-  <target name="compile-test">
+  <target name="compile-tests">
     <java
         classname="BatchCompiler"
         output="test/compiled-test.js"
@@ -14,6 +14,19 @@
         fork="true"
       >
       <arg value="${basedir}/test/test.js" />
+      <classpath>
+        <fileset dir="lib"><include name="**/*.jar" /></fileset>
+        <fileset dir="${dist.dir}"><include name="**/*.jar" /></fileset>
+      </classpath>
+    </java>
+    <echo message="${java-errors}" />
+    <java
+        classname="BatchCompiler"
+        output="test/compiled-test-sql.js"
+        errorproperty="java-errors"
+        fork="true"
+      >
+      <arg value="${basedir}/test/test-sql.js" />
       <classpath>
         <fileset dir="lib"><include name="**/*.jar" /></fileset>
         <fileset dir="${dist.dir}"><include name="**/*.jar" /></fileset>
@@ -58,7 +71,7 @@
 
   <target
       name="test"
-      depends="compile-test, compile-servers">
+      depends="compile-tests, compile-servers">
     <java
         classname="TestWebServer"
         classpathref="server.class.path">
@@ -68,7 +81,7 @@
 
   <target
       name="test-tcp"
-      depends="compile-test, compile-servers, input-tcp-args">
+      depends="compile-tests, compile-servers, input-tcp-args">
     <java
         classname="TestWebServerWithTCP"
         classpathref="server.class.path">

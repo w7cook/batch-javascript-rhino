@@ -5,5 +5,5 @@ rhino1_7R4/lib
 build
 server-test
 TODO
-compiled-test.js
+compiled-test*
 ignore

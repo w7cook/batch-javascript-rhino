@@ -1,4 +1,4 @@
-<project name="batch-javascript-rhino" default="compile-test" basedir=".">
+<project name="batch-javascript-rhino" basedir=".">
   <property file="build.properties" />
 
   <target name="clean">
@@ -37,8 +37,8 @@
     />
   </target>
 
-  <target name="compile-test" depends="build">
-    <ant antfile="test/build.xml" target="compile-test" />
+  <target name="compile-tests" depends="build">
+    <ant antfile="test/build.xml" target="compile-tests" />
   </target>
 
   <target name="compile-servers" depends="build">
