@@ -14,11 +14,19 @@ batch function remote isSoldOut(remote product) {
   return product.UnitsInStock < 1;
 }
 
+batch function remote byProductName(remote product) {
+  return product.ProductName;
+}
+
 batch (var db in __BATCH_SERVICE__) {
-  for each (var product in db.Products.orderBy(function(x){return x.ProductName;})) {
+  for each (var product in db.Products.orderBy(batch byProductName)) {
     if (batch isSoldOut(product)) {
-      page.putText(product.ProductName + " is sold out!")
+      page.putText(product.ProductName + " is sold out!");
     }
+  }
+  page.putText("--all--");
+  for each (var p2 in db.Products.orderBy(function(x){return x.ProductName;})) {
+    page.putText(p2.ProductName);
   }
 }
   };

@@ -13,10 +13,10 @@ import java.util.List;
 import java.util.Map;
 
 public class JSToPartition<E> {
-  private PartitionFactory<E> factory;
-  private String root;
+  private final PartitionFactory<E> factory;
+  private final String root;
   private boolean isReturnRemote;
-  private Map<String, DynamicCallInfo> batchFunctionsInfo;
+  private final Map<String, DynamicCallInfo> batchFunctionsInfo;
 
   public JSToPartition(
       PartitionFactory<E> factory,
@@ -91,10 +91,7 @@ public class JSToPartition<E> {
       case Token.EMPTY:
         return factory.Skip();
       case Token.BATCH_INLINE:
-        throw new Error(
-          "Inlined batch functions must be called: <batch "
-          + ((BatchInline)node).getFunctionName().toSource() + ">"
-        );
+        return exprFromBatchInlineLambda((BatchInline)node);
       case Token.LP:
         return exprFrom(((ParenthesizedExpression)node).getExpression());
       case Token.HOOK:
@@ -117,14 +114,14 @@ public class JSToPartition<E> {
 
   private E convertSequence(Iterator<Node> nodes) {
     LinkedList<E> sequence = new LinkedList<E>();
-    if (nodes.hasNext()) {
+    while (nodes.hasNext()) {
       AstNode node = (AstNode)nodes.next();
       switch (node.getType()) {
         case Token.VAR:
           sequence.addLast(
             exprFromVariableDeclaration(
               (VariableDeclaration)node,
-              convertSequence(nodes) // Note: node iterator will end since
+              convertSequence(nodes) // Note: while loop will end since
                                      // recursive call will finish going
                                      // through the iterator
             )
@@ -154,6 +151,24 @@ public class JSToPartition<E> {
     return exprFrom(statement.getExpression());
   }
 
+  private DynamicCallInfo getBatchFunctionInfo(String funcName) {
+    if (funcName != null && batchFunctionsInfo.containsKey(funcName)) {
+      return batchFunctionsInfo.get(funcName);
+    } else {
+      if (funcName != null) {
+        throw new Error(
+          "Batch call to <" + funcName + "> does not correspond to "
+          + "a batch function of that name"
+        );
+      } else {
+        // Should not occur on ast coming from the parser
+        throw new Error(
+          "batch keyword used incorrectly"
+        );
+      }
+    }
+  }
+
   private E exprFromFunctionCall(FunctionCall call) {
     AstNode target = call.getTarget();
     switch (target.getType()) {
@@ -168,28 +183,14 @@ public class JSToPartition<E> {
         String funcName = JSUtil.identifierOf(
           ((BatchInline)target).getFunctionName()
         );
-        if (funcName != null && batchFunctionsInfo.containsKey(funcName)) {
-          return factory.setExtra(
-            factory.DynamicCall(
-              factory.Skip(),
-              funcName,
-              mapExprFrom(call.getArguments())
-            ),
-            batchFunctionsInfo.get(funcName)
-          );
-        } else {
-          if (funcName != null) {
-            throw new Error(
-              "Batch call to <" + funcName + "> does not correspond to "
-              + "a batch function of that name"
-            );
-          } else {
-            // Should not occur on ast coming from the parser
-            throw new Error(
-              "batch keyword used incorrectly"
-            );
-          }
-        }
+        return factory.setExtra(
+          factory.DynamicCall(
+            factory.Skip(),
+            funcName,
+            mapExprFrom(call.getArguments())
+          ),
+          getBatchFunctionInfo(funcName)
+        );
       default:
         return JSUtil.noimpl();
     }
@@ -348,6 +349,30 @@ public class JSToPartition<E> {
     return factory.Prop(
       exprFrom(prop.getTarget()),
       prop.getProperty().getIdentifier()
+    );
+  }
+
+  private E exprFromBatchInlineLambda(BatchInline inline) {
+    String funcName = JSUtil.identifierOf(inline.getFunctionName());
+    DynamicCallInfo info = getBatchFunctionInfo(funcName);
+    if (info.returns != Place.REMOTE) {
+      throw new Error("Inlined batch lambdas must return remote values");
+    }
+    if (info.arguments.size() != 1 || info.arguments.get(0) != Place.REMOTE) {
+      throw new Error("Inlined batch lambdas must take exactly 1 remote value");
+    }
+    return factory.Fun(
+      "arg",
+      factory.setExtra(
+        factory.DynamicCall(
+          factory.Skip(),
+          funcName,
+          new ArrayList<E>() {{
+            add(factory.Var("arg"));
+          }}
+        ),
+        getBatchFunctionInfo(funcName)
+      )
     );
   }
 
