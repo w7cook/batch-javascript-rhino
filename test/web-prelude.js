@@ -314,18 +314,19 @@ window.onload = (function(old_onload) {
           this.startLoop = (function(loop) {
             this.startLoop = undefined;
             var i = 0;
-            this.stepLoop = (function(isReturning, value) {
+            var next = this.stepLoop = (function(isReturning, value) {
+              this.stepLoop = undefined;
               if (isReturning) {
-                this.stepLoop = undefined;
                 post_cb(isReturning, value);
               } else if (i < loop.children.length) {
                 step_cb(
                   new AsyncObject(loop.children[i++]).returnObject,
-                  this.stepLoop
+                  next
                 );
               } else if (loop.finished) {
-                this.stepLoop = undefined;
                 post_cb(false, undefined);
+              } else {
+                this.stepLoop = next;
               }
             }).bind(this);
             return this.stepLoop(false, undefined);
