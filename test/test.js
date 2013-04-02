@@ -41,6 +41,9 @@ batch function remote g(remote x, remote i) {
     return "BAD"
   };
 }
+batch function remote buildUser(remote factory, local fromData) {
+  return factory.User(fromData.name, fromData.userName, fromData.avatar);
+}
 
 XX = {bigSize: function() { return 1000; } }
 batch (var root in __BATCH_SERVICE__) {

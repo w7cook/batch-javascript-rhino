@@ -201,15 +201,22 @@ public class BatchCompiler implements NodeVisitor {
         AstNode partialScript = _script;
         addParam(JSUtil.genName("s$"));
         addParam(JSUtil.genName("f$"));
-        for (AstNode astParam : _func.getParams()) {
-          BatchParam param = (BatchParam)astParam;
+        Iterator<AstNode> argIt = _func.getParams().iterator();
+        Iterator<Place> placeIt =
+          batchFunctionsInfo.get(_func.getName()).arguments.iterator();
+        while (argIt.hasNext()) {
+          BatchParam param = (BatchParam)argIt.next();
+          Place place = placeIt.next();
+
           String paramName = JSUtil.mustIdentifierOf(param.getParameter());
           addParam(JSUtil.genName(paramName));
-          partialScript = _sc.Let(
-            paramName,
-            JSUtil.genName(paramName),
-            partialScript
-          );
+          if (place == Place.REMOTE) {
+            partialScript = _sc.Let(
+              paramName,
+              JSUtil.genName(paramName),
+              partialScript
+            );
+          }
         }
         final AstNode _fullScript = partialScript;
         setBody(JSUtil.concatBlocks(
