@@ -207,6 +207,22 @@ public class JSUtil {
     return JSUtil.genName("undefined");
   }
 
+  public static ObjectLiteral genObject(List<AstNode> elements) {
+    ObjectLiteral obj = new ObjectLiteral();
+    for (AstNode node : elements) {
+      obj.addElement((ObjectProperty)node);
+    }
+    return obj;
+  }
+
+  public static ObjectProperty genProperty(String key, AstNode value) {
+    ObjectProperty prop = new ObjectProperty();
+    prop.setNodeType(Token.COLON);
+    prop.setLeft(JSUtil.genName(key));
+    prop.setRight(value);
+    return prop;
+  }
+
   public static String identifierOf(AstNode node) {
     switch (node.getType()) {
       case Token.NAME:

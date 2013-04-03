@@ -264,25 +264,58 @@ public class RawJSFactory extends PartitionFactoryHelper<Generator> {
 
   @Override
   public Generator Other(
-      final Object _external,
+      Object external,
       List<Generator> subGens) {
-    if (_external.equals(JSMarkers.RETURN) && subGens.size() == 1) {
-      return subGens.get(0).Bind(new Function<AstNode, Generator>() {
-        public Generator call(AstNode result) {
-          return new ReturnGenerator(result);
-        }
-      });
-    } else {
-      return new Generator() {
-        public AstNode Generate(
-            String in,
-            String out,
-            Function<AstNode, AstNode> returnFunction) {
-          // generate subGens here
-          return JSUtil.noimpl();
-        }
-      };
+    if (external instanceof JSMarkers) {
+      switch ((JSMarkers)external) {
+        case RETURN:
+          if (subGens.size() == 1) {
+            return subGens.get(0).Bind(new Function<AstNode, Generator>() {
+              public Generator call(AstNode result) {
+                return new ReturnGenerator(result);
+              }
+            });
+          }
+          break;
+        case OBJECT:
+          return Monad.SequenceBind(subGens,new JSGenFunction<List<AstNode>>() {
+            public AstNode Generate(
+                String in,
+                String out,
+                Function<AstNode, AstNode> returnFunction,
+                List<AstNode> elements) {
+              return JSUtil.genObject(elements);
+            }
+          });
+      }
+    } else if (external instanceof JSMarkerWithInfo) {
+      JSMarkerWithInfo<?> markerWithInfo = (JSMarkerWithInfo<?>)external;
+      switch ((JSMarkers)markerWithInfo.marker) {
+        case PROPERTY:
+          final String _propName = (String)markerWithInfo.info;
+          if (subGens.size() == 1) {
+            return subGens.get(0).Bind(new JSGenFunction<AstNode>() {
+              public AstNode Generate(
+                  String in,
+                  String out,
+                  Function<AstNode, AstNode> returnFunction,
+                  AstNode value) {
+                return JSUtil.genProperty(_propName, value);
+              }
+            });
+          }
+          break;
+      }
     }
+    return new Generator() {
+      public AstNode Generate(
+          String in,
+          String out,
+          Function<AstNode, AstNode> returnFunction) {
+        // generate subGens here
+        return JSUtil.noimpl();
+      }
+    };
   }
 
   @Override

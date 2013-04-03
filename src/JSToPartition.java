@@ -98,6 +98,8 @@ public class JSToPartition<E> {
         return exprFromConditionalExpression((ConditionalExpression)node);
       case Token.GETPROP:
         return exprFromPropertyGet((PropertyGet)node);
+      case Token.OBJECTLIT:
+        return exprFromObjectLiteral((ObjectLiteral)node);
       default:
         System.err.println("INCOMPLETE: "+Token.typeToName(node.getType())+" "+node.getClass().getName());
         return JSUtil.noimpl();
@@ -381,6 +383,22 @@ public class JSToPartition<E> {
         getBatchFunctionInfo(funcName)
       )
     );
+  }
+
+  private E exprFromObjectLiteral(ObjectLiteral obj) {
+    List<E> elements = new ArrayList<E>(obj.getElements().size());
+    for (ObjectProperty elem : obj.getElements()) {
+      elements.add(
+        factory.Other(
+          new JSMarkerWithInfo<String>(
+            JSMarkers.PROPERTY,
+            JSUtil.mustIdentifierOf(elem.getLeft())
+          ),
+          exprFrom(elem.getRight())
+        )
+      );
+    }
+    return factory.Other(JSMarkers.OBJECT, elements);
   }
 
   private E exprFromOther(AstNode node) {
