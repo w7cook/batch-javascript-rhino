@@ -27,6 +27,13 @@ batch function local getSomeBigFileName(remote dir, remote i) {
   }
   return "<NONE>";
 }
+var global = {test: function(x) { return !!x; }}
+batch function local testingIfs(remote r) {
+  if (global.test(r.length())) {
+    return r.getName();
+  }
+  return '';
+}
 batch function remote f(remote x, remote i) {
   return (
     x.foo(i) > 10

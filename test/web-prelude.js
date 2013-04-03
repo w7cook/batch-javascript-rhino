@@ -314,11 +314,9 @@ window.onload = (function(old_onload) {
           this.startLoop = (function(loop) {
             this.startLoop = undefined;
             var i = 0;
-            var next = this.stepLoop = (function(isReturning, value) {
+            var next = this.stepLoop = (function() {
               this.stepLoop = undefined;
-              if (isReturning) {
-                post_cb(isReturning, value);
-              } else if (i < loop.children.length) {
+              if (i < loop.children.length) {
                 step_cb(
                   new AsyncObject(loop.children[i++]).returnObject,
                   next
@@ -329,7 +327,7 @@ window.onload = (function(old_onload) {
                 this.stepLoop = next;
               }
             }).bind(this);
-            return this.stepLoop(false, undefined);
+            return this.stepLoop();
           }).bind(this);
           this.tryCallback();
         }).bind(this),
