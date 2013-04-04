@@ -53,18 +53,18 @@ batch function remote buildUser(remote factory, local fromData) {
 }
 
 XX = {bigSize: function() { return 1000; } }
-batch (var root in __BATCH_SERVICE__) {
+batch __BATCH_SERVICE__.execute(function(root) {
   page.putText(
     "Following file is big: "
     + batch getSomeBigFileName(root.getDir(),batch f(root,XX.bigSize()))
   );
   //batch f(root.bar(20), XX.get(), "yay");
   page.putText("hello");
-}
+});
 
-    //batch (var root in __BATCH_SERVICE__) {
+    //batch __BATCH_SERVICE__.execute(function(root) {
     //  page.putText("FOO(" + x + ") = " + root.foo(x));
-    //}
+    //});
 
     //batch function markedNameBySize(afile) {
     //  var name = afile.getName();
@@ -84,7 +84,7 @@ batch (var root in __BATCH_SERVICE__) {
     //  return x > 10;
     //}
 
-    //batch (var root in __BATCH_SERVICE__) {
+    //batch __BATCH_SERVICE__.execute(function(root) {
     //  page.putText(
     //    "First pow of 2 > 10 = "
     //    + root.firstPow2That(function(x) { return x > 10; }) // gt10
@@ -105,6 +105,6 @@ batch (var root in __BATCH_SERVICE__) {
     //    }
     //  }
     //  page.putText("EOD");
-    //}
+    //});
   };
 })(window.onload);

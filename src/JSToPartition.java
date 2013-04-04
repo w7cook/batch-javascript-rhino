@@ -90,8 +90,8 @@ public class JSToPartition<E> {
         return exprFromReturnStatement((ReturnStatement)node);
       case Token.EMPTY:
         return factory.Skip();
-      case Token.BATCH_INLINE:
-        return exprFromBatchInlineLambda((BatchInline)node);
+      case Token.BATCH:
+        return exprFromBatchExpression((BatchExpression)node);
       case Token.LP:
         return exprFrom(((ParenthesizedExpression)node).getExpression());
       case Token.HOOK:
@@ -180,19 +180,6 @@ public class JSToPartition<E> {
           exprFrom(propGet.getTarget()),
           propGet.getProperty().getIdentifier(),
           mapExprFrom(call.getArguments())
-        );
-      case Token.BATCH_INLINE:
-        String funcName = JSUtil.identifierOf(
-          ((BatchInline)target).getFunctionName()
-        );
-        return factory.setExtra(
-          factory.DynamicCall(
-            factory.Skip(),
-            funcName,
-            mapExprFrom(call.getArguments())
-          ),
-          DynamicCallInfo.TYPE_INFO_KEY,
-          getBatchFunctionInfo(funcName)
         );
       default:
         return JSUtil.noimpl();
@@ -360,29 +347,58 @@ public class JSToPartition<E> {
     );
   }
 
-  private E exprFromBatchInlineLambda(BatchInline inline) {
-    String funcName = JSUtil.identifierOf(inline.getFunctionName());
-    DynamicCallInfo info = getBatchFunctionInfo(funcName);
-    if (info.returns != Place.REMOTE) {
-      throw new Error("Inlined batch lambdas must return remote values");
+  private E exprFromBatchExpression(BatchExpression batch) {
+    switch (batch.getExpression().getType()) {
+      case Token.NAME: {
+        String funcName = JSUtil.identifierOf(batch.getExpression());
+        DynamicCallInfo info = getBatchFunctionInfo(funcName);
+        if (info.returns != Place.REMOTE) {
+          throw new Error(
+            "Using a batch functions as a first-class value, "
+            + "requires that the batch function returns a remote value"
+          );
+        }
+        if (info.arguments.size()!=1 || info.arguments.get(0) != Place.REMOTE) {
+          throw new Error(
+            "Using a batch functions as a first-class value, "
+            + "requires that the batch function takes exactly 1 remote argument"
+          );
+        }
+        return factory.Fun(
+          "arg",
+          factory.setExtra(
+            factory.DynamicCall(
+              factory.Skip(),
+              funcName,
+              new ArrayList<E>() {{
+                add(factory.Var("arg"));
+              }}
+            ),
+            DynamicCallInfo.TYPE_INFO_KEY,
+            getBatchFunctionInfo(funcName)
+          )
+        );
+      }
+        
+      case Token.CALL: {
+        FunctionCall call = (FunctionCall)batch.getExpression();
+        String funcName = JSUtil.mustIdentifierOf(
+          call.getTarget()
+        );
+        return factory.setExtra(
+          factory.DynamicCall(
+            factory.Skip(),
+            funcName,
+            mapExprFrom(call.getArguments())
+          ),
+          DynamicCallInfo.TYPE_INFO_KEY,
+          getBatchFunctionInfo(funcName)
+        );
+      }
+      
+      default:
+        return JSUtil.noimpl();
     }
-    if (info.arguments.size() != 1 || info.arguments.get(0) != Place.REMOTE) {
-      throw new Error("Inlined batch lambdas must take exactly 1 remote value");
-    }
-    return factory.Fun(
-      "arg",
-      factory.setExtra(
-        factory.DynamicCall(
-          factory.Skip(),
-          funcName,
-          new ArrayList<E>() {{
-            add(factory.Var("arg"));
-          }}
-        ),
-        DynamicCallInfo.TYPE_INFO_KEY,
-        getBatchFunctionInfo(funcName)
-      )
-    );
   }
 
   private E exprFromObjectLiteral(ObjectLiteral obj) {
