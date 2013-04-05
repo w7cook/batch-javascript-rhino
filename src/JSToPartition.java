@@ -45,12 +45,9 @@ public class JSToPartition<E> {
       case Token.NAME:
         return exprFromName((Name)node);
       // Binary operators
-      // Note: AND and OR are not listed here, since they carry a different
-      // paper TODO basic implementation of AND, OR, NOT
 	    //   AVG, MIN, MAX, COUNT, // aggregation
 	    //   ASC, DESC, // sorting
 	    //   GROUP; // mapping and grouping
-      // meaning in javascript
       case Token.ADD:
       case Token.SUB:
       case Token.MUL:
@@ -62,9 +59,11 @@ public class JSToPartition<E> {
       case Token.GT:
       case Token.LE:
       case Token.GE:
+      case Token.AND:
+      case Token.OR:
         return exprFromInfixExpression((InfixExpression)node);
-      //case Token.NOT: // TODO: this has slightly different meaning in javascript
-      //  return exprFromUnaryExpression((UnaryExpression)node);
+      case Token.NOT:
+        return exprFromUnaryExpression((UnaryExpression)node);
       case Token.STRING:
         return exprFromStringLiteral((StringLiteral)node);
       case Token.NUMBER:
@@ -197,8 +196,19 @@ public class JSToPartition<E> {
     }
   }
 
+  private int condVarId = 0;
+  private E falsyValueOf(E expr) {
+    // javascript !x = batch (x!=x || x=="" || x==0 || x==false)
+    return factory.Prim(Op.OR,
+      factory.Prim(Op.NE, expr, expr),
+      factory.Prim(Op.EQ, expr, factory.Data("")),
+      factory.Prim(Op.EQ, expr, factory.Data(0)),
+      factory.Prim(Op.EQ, expr, factory.Data(false))
+    );
+  }
+
   private E exprFromInfixExpression(InfixExpression infix) {
-    Op binOp;
+    Op binOp = null;
     switch (infix.getOperator()) {
       case Token.ADD: binOp = Op.ADD; break;
       case Token.SUB: binOp = Op.SUB; break;
@@ -211,14 +221,63 @@ public class JSToPartition<E> {
       case Token.GT:  binOp = Op.GT;  break;
       case Token.LE:  binOp = Op.LE;  break;
       case Token.GE:  binOp = Op.GE;  break;
+    }
+    if (binOp != null) {
+      return factory.Prim(
+        binOp,
+        exprFrom(infix.getLeft()),
+        exprFrom(infix.getRight())
+      );
+    }
+    E x = exprFrom(infix.getLeft());
+    E y = exprFrom(infix.getRight());
+    String var = "cond$" + condVarId++;
+    switch (infix.getOperator()) {
+      // javascript x && y = batch if(falsy(x)) {x} else {y}
+      case Token.AND:
+        return factory.setExtra(
+          factory.Let(
+            var,
+            x,
+            factory.If(falsyValueOf(factory.Var(var)), factory.Var(var), y)
+          ),
+          JSMarkers.AND,
+          true
+        );
+      // javascript x || y = batch if(falsy(x)) {y} else {x}
+      case Token.OR:
+        return factory.setExtra(
+          factory.Let(
+            var,
+            x,
+            factory.If(falsyValueOf(factory.Var(var)), y, factory.Var(var))
+          ),
+          JSMarkers.OR,
+          true
+        );
       default:
         return JSUtil.noimpl();
     }
-    return factory.Prim(
-      binOp,
-      exprFrom(infix.getLeft()),
-      exprFrom(infix.getRight())
-    );
+      
+  }
+      
+
+  private E exprFromUnaryExpression(UnaryExpression unary) {
+    switch (unary.getOperator()) {
+      case Token.NOT:
+        String var = "cond$" + condVarId++;
+        return factory.setExtra(
+          factory.Let(
+            var,
+            exprFrom(unary.getOperand()),
+            falsyValueOf(factory.Var(var))
+          ),
+          JSMarkers.NOT,
+          true
+        );
+      default:
+        return JSUtil.noimpl();
+    }
   }
 
   private E exprFromStringLiteral(StringLiteral literal) {

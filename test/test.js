@@ -29,6 +29,7 @@ batch function local getSomeBigFileName(remote dir, remote i) {
 }
 var global = {test: function(x) { return !!x; }}
 batch function local testingIfs(remote r) {
+  // local
   if (global.test(r.length())) {
     return r.getName();
   }
@@ -42,14 +43,11 @@ batch function remote f(remote x, remote i) {
   );
 }
 batch function remote g(remote x, remote i) {
-  if (x.foo(i) > 10) {
-    return i;
+  if (!!x.foo(i)) {
+    return i || 10 && 22;
   } else {
     return "BAD"
   };
-}
-batch function remote buildUser(remote factory, local fromData) {
-  return factory.User(fromData.name, fromData.userName, fromData.avatar);
 }
 
 XX = {bigSize: function() { return 1000; } }

@@ -42,7 +42,13 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
       Generator conditionGen,
       Generator thenExprGen,
       Generator elseExprGen) {
-    return new IfGenerator(conditionGen, thenExprGen, elseExprGen);
+    return new MarkedGenerator(
+      new IfGenerator(conditionGen, thenExprGen, elseExprGen),
+      JSMarkers.IF,
+      conditionGen,
+      thenExprGen,
+      elseExprGen
+    );
   }
 
   @Override

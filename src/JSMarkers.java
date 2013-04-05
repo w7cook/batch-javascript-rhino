@@ -4,4 +4,9 @@ enum JSMarkers {
   STATEMENT,
   OBJECT,
   PROPERTY,
+  AND,
+  OR,
+  NOT,
+  LET,
+  IF,
 }

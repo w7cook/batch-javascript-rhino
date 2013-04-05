@@ -177,6 +177,10 @@ public class JSUtil {
     }
   }
 
+  public static UnaryExpression genUnary(int type, AstNode arg) {
+    return new UnaryExpression(type, 0, arg);
+  }
+
   public static InfixExpression genInfix(int type, AstNode... args) {
     InfixExpression ie = new InfixExpression(
       type,
@@ -195,12 +199,8 @@ public class JSUtil {
     return ie;
   }
 
-  public static KeywordLiteral genTrue() {
-    return new KeywordLiteral().setType(Token.TRUE);
-  }
-
-  public static KeywordLiteral genFalse() {
-    return new KeywordLiteral().setType(Token.FALSE);
+  public static KeywordLiteral genBoolean(boolean bool) {
+    return new KeywordLiteral().setType(bool ? Token.TRUE : Token.FALSE);
   }
 
   public static Name genUndefined() {

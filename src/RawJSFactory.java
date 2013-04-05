@@ -21,8 +21,10 @@ public class RawJSFactory extends PartitionFactoryHelper<Generator> {
       node = null;
     } else if (value instanceof String) {
       node = JSUtil.genStringLiteral((String)value, '"');
-    } else if (value instanceof Float) {
-      node = new NumberLiteral(((Float)value).doubleValue());
+    } else if (value instanceof Number) {
+      node = new NumberLiteral(((Number)value).doubleValue());
+    } else if (value instanceof Boolean) {
+      node = JSUtil.genBoolean((Boolean)value);
     } else {
       node = JSUtil.noimpl();
     }
@@ -83,12 +85,15 @@ public class RawJSFactory extends PartitionFactoryHelper<Generator> {
           List<AstNode> args) {
         int type;
         switch (args.size()) {
+          case 0:
+            return JSUtil.noimpl();
           case 1:
             switch (_op) {
-              case NOT:
+              case NOT: type = Token.NOT; break;
+              default: return JSUtil.noimpl();
             }
-            return JSUtil.noimpl();
-          case 2:
+            return JSUtil.genUnary(type, args.get(0));
+          default:
             switch (_op) {
               case ADD: type = Token.ADD; break;
               case SUB: type = Token.SUB; break;
@@ -101,18 +106,12 @@ public class RawJSFactory extends PartitionFactoryHelper<Generator> {
               case GT:  type = Token.GT;  break;
               case LE:  type = Token.LE;  break;
               case GE:  type = Token.GE;  break;
+              case AND: type = Token.AND; break;
+              case OR:  type = Token.OR;  break;
               default:
                 return JSUtil.noimpl();
             }
-            return
-              new InfixExpression(
-                type,
-                args.get(0),
-                args.get(1),
-                0
-              );
-          default:
-            return JSUtil.noimpl();
+            return JSUtil.genInfix(type, args.toArray(new AstNode[]{}));
         }
       }
     });
@@ -155,7 +154,7 @@ public class RawJSFactory extends PartitionFactoryHelper<Generator> {
       final String _var,
       Generator expressionGen,
       final Generator _bodyGen) {
-    return expressionGen.Bind(new JSGenFunction<AstNode>() {
+    Generator gen = expressionGen.Bind(new JSGenFunction<AstNode>() {
       public AstNode Generate(
           String in,
           String out,
@@ -168,6 +167,8 @@ public class RawJSFactory extends PartitionFactoryHelper<Generator> {
         );
       }
     });
+    return
+      new MarkedGenerator(gen, JSMarkers.LET, _var, expressionGen, _bodyGen);
   }
 
   @Override
@@ -175,7 +176,7 @@ public class RawJSFactory extends PartitionFactoryHelper<Generator> {
       final Generator _conditionGen,
       final Generator _thenExprGen,
       final Generator _elseExprGen) {
-    return new Generator() {
+    Generator gen = new Generator() {
       public AstNode Generate(
           final String _in,
           final String _out,
@@ -210,6 +211,13 @@ public class RawJSFactory extends PartitionFactoryHelper<Generator> {
         }).Generate(_in, _out, _returnFunction);
       }
     };
+    return new MarkedGenerator(
+      gen,
+      JSMarkers.IF,
+      _conditionGen,
+      _thenExprGen,
+      _elseExprGen
+    );
   }
 
   @Override
@@ -359,21 +367,85 @@ public class RawJSFactory extends PartitionFactoryHelper<Generator> {
 
   @Override
   public Generator setExtra(Generator exp, Object extraKey, Object extraInfo) {
-    if (extraKey == JSMarkers.RETURN && extraInfo == true) {
-      return exp.Bind(new Function<AstNode, Generator>() {
-        public Generator call(AstNode result) {
-          return new ReturnGenerator(result);
-        }
-      });
-    }
-    if (extraKey == JSMarkers.STATEMENT && extraInfo == true) {
-      return exp.Bind(new Function<AstNode, Generator>() {
-        public Generator call(AstNode result) {
-          return new SequenceGenerator(result);
-        }
-      });
+    if (extraKey instanceof JSMarkers && extraInfo == true) {
+      switch ((JSMarkers)extraKey) {
+        case RETURN:
+          return exp.Bind(new Function<AstNode, Generator>() {
+            public Generator call(AstNode result) {
+              return new ReturnGenerator(result);
+            }
+          });
+        case STATEMENT:
+          return exp.Bind(new Function<AstNode, Generator>() {
+            public Generator call(AstNode result) {
+              return new SequenceGenerator(result);
+            }
+          });
+        case NOT:
+          Generator exprGen = getLeftGenOfTruthyTest(exp);
+          if (exprGen == null) {
+            return exp;
+          }
+          return exprGen.Bind(new JSGenFunction<AstNode>() {
+            public AstNode Generate(
+                String in,
+                String out,
+                Function<AstNode, AstNode> returnFunction,
+                AstNode inner) {
+              return JSUtil.genUnary(Token.NOT, inner);
+            }
+          });
+        case AND:
+          return getInfixBooleanOperator(Token.AND, exp, false);
+        case OR:
+          return getInfixBooleanOperator(Token.OR, exp, true);
+      }
     }
     return exp.setExtra(extraKey, extraInfo);
+  }
+
+  private Generator getLeftGenOfTruthyTest(Generator gen) {
+    List<Object> info = MarkedGenerator.getInfoFor(gen, JSMarkers.LET);
+    return info == null
+      ? null
+      : (Generator)info.get(1);
+  }
+
+  private Generator getRightGenOfTruthyTest(
+      Generator gen,
+      boolean isThenBranch) {
+    List<Object> letInfo = MarkedGenerator.getInfoFor(gen, JSMarkers.LET);
+    if (letInfo != null) {
+      Generator body = (Generator)letInfo.get(2);
+      List<Object> ifInfo = MarkedGenerator.getInfoFor(body, JSMarkers.IF);
+      if (ifInfo != null) {
+        return (Generator)ifInfo.get(isThenBranch ? 1 : 2);
+      }
+    }
+    return null;
+  }
+
+  private Generator getInfixBooleanOperator(
+      final int _type,
+      Generator gen,
+      boolean isThenBranch) {
+    Generator leftGen = getLeftGenOfTruthyTest(gen);
+    Generator rightGen = getRightGenOfTruthyTest(gen, isThenBranch);
+    if (leftGen == null || rightGen == null) {
+      return gen;
+    }
+    return Monad.Bind2(leftGen, rightGen,
+      new JSGenFunction2<AstNode, AstNode>() {
+        public AstNode Generate(
+            String in,
+            String out,
+            Function<AstNode, AstNode> returnFunction,
+            AstNode left,
+            AstNode right) {
+          return JSUtil.genInfix(_type, left, right);
+        }
+      }
+    );
   }
 
 
