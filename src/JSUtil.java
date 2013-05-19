@@ -10,6 +10,24 @@ public class JSUtil {
     return new Name(0, identifier);
   }
 
+  public static NumberLiteral genNumberLiteral(final Number _i) {
+    return new NumberLiteral() {{
+      setNumber(_i.doubleValue());
+      setValue(_i.toString());
+    }};
+  }
+
+  public static ConditionalExpression genConditionalExpression(
+      final AstNode _testExpr,
+      final AstNode _trueExpr,
+      final AstNode _falseExpr) {
+    return new ConditionalExpression() {{
+      setTestExpression(_testExpr);
+      setTrueExpression(_trueExpr);
+      setFalseExpression(_falseExpr);
+    }};
+  }
+
   public static StringLiteral genStringLiteral(String s) {
     return genStringLiteral(s, '"');
   }
@@ -42,15 +60,20 @@ public class JSUtil {
     }};
   }
 
+  public static VariableDeclaration genDeclareExpr(String var, AstNode init) {
+    return genDeclareExpr(new Pair<String, AstNode>(var, init));
+  }
+
   public static VariableDeclaration genDeclareExpr(
-      final String _var,
-      final AstNode _init) {
+      final Pair<String, AstNode>... _varsAndInits) {
     return new VariableDeclaration() {{
-      addVariable(new VariableInitializer() {{
-        setNodeType(Token.VAR);
-        setTarget(JSUtil.genName(_var));
-        setInitializer(_init);
-      }});
+      for (final Pair<String, AstNode> _pair : _varsAndInits) {
+        addVariable(new VariableInitializer() {{
+          setNodeType(Token.VAR);
+          setTarget(JSUtil.genName(_pair.first));
+          setInitializer(_pair.second);
+        }});
+      }
     }};
   }
 
@@ -215,7 +238,15 @@ public class JSUtil {
     return obj;
   }
 
-  public static ObjectProperty genProperty(String key, AstNode value) {
+  public static ElementGet genElementGet(AstNode target, AstNode element) {
+    return new ElementGet(target, element);
+  }
+
+  public static PropertyGet genPropertyGet(AstNode target, String property) {
+    return new PropertyGet(target, JSUtil.genName(property));
+  }
+
+  public static ObjectProperty genObjectProperty(String key, AstNode value) {
     ObjectProperty prop = new ObjectProperty();
     prop.setNodeType(Token.COLON);
     prop.setLeft(JSUtil.genName(key));

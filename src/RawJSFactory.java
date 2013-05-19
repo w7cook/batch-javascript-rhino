@@ -201,11 +201,11 @@ public class RawJSFactory extends PartitionFactoryHelper<Generator> {
                 }
               }};
             } else {
-              return new ConditionalExpression() {{
-                setTestExpression(_condition);
-                setTrueExpression(_thenExpr);
-                setFalseExpression(_elseExpr);
-              }};
+              return JSUtil.genConditionalExpression(
+                _condition,
+                _thenExpr,
+                _elseExpr
+              );
             }
           }
         }).Generate(_in, _out, _returnFunction);
@@ -231,10 +231,32 @@ public class RawJSFactory extends PartitionFactoryHelper<Generator> {
           final String _out,
           final Function<AstNode, AstNode> _returnFunction,
           final AstNode _collection) {
-        return new ForInLoop() {{
-          setIterator(JSUtil.genDeclareExpr(_var));
-          setIteratedObject(_collection);
-          setBody(_bodyGen.Generate(_in, _out, _returnFunction));
+        final String _i = _var+"_$i";
+        final String _col = _var+"_$col";
+        return new ForLoop() {{
+          setInitializer(
+            JSUtil.genDeclareExpr(
+              new Pair<String, AstNode>(_i, JSUtil.genNumberLiteral(0)),
+              new Pair<String, AstNode>(_col, _collection)
+            )
+          );
+          setCondition(
+            JSUtil.genInfix(
+              Token.LT, 
+              JSUtil.genName(_i),
+              JSUtil.genPropertyGet(JSUtil.genName(_col), "length")
+            )
+          );
+          setIncrement(JSUtil.genUnary(Token.INC, JSUtil.genName(_i)));
+          setBody(
+            JSUtil.concatBlocks(
+              JSUtil.genDeclareExpr(
+                _var,
+                JSUtil.genElementGet(JSUtil.genName(_col), JSUtil.genName(_i))
+              ),
+              _bodyGen.Generate(_in, _out, _returnFunction)
+            )
+          );
         }};
       }
     });
@@ -308,7 +330,7 @@ public class RawJSFactory extends PartitionFactoryHelper<Generator> {
                   String out,
                   Function<AstNode, AstNode> returnFunction,
                   AstNode value) {
-                return JSUtil.genProperty(_propName, value);
+                return JSUtil.genObjectProperty(_propName, value);
               }
             });
           }
