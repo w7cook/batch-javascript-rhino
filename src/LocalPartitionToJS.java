@@ -7,12 +7,12 @@ import batch.partition.*;
 import java.util.List;
 import java.util.Map;
 
-public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
+public class LocalPartitionToJS extends PartitionFactoryHelper<Generator> {
 
   private Map<String, DynamicCallInfo> batchFunctionsInfo;
   private static final RawJSFactory rawJSFactory = new RawJSFactory();
 
-  public JSPartitionFactory(Map<String, DynamicCallInfo> batchFunctionsInfo) {
+  public LocalPartitionToJS(Map<String, DynamicCallInfo> batchFunctionsInfo) {
     this.batchFunctionsInfo = batchFunctionsInfo;
   }
 
@@ -42,7 +42,13 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
       Generator conditionGen,
       Generator thenExprGen,
       Generator elseExprGen) {
-    return new IfGenerator(conditionGen, thenExprGen, elseExprGen);
+    return new MarkedGenerator(
+      new IfGenerator(conditionGen, thenExprGen, elseExprGen),
+      JSMarkers.IF,
+      conditionGen,
+      thenExprGen,
+      elseExprGen
+    );
   }
 
   @Override
@@ -155,8 +161,8 @@ public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
   }
 
   @Override
-  public Generator setExtra(Generator exp, Object extra) {
-    return rawJSFactory.setExtra(exp, extra);
+  public Generator setExtra(Generator exp, Object extraKey, Object extraInfo) {
+    return rawJSFactory.setExtra(exp, extraKey, extraInfo);
   }
 
   @Override

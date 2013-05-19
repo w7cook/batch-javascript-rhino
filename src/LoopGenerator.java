@@ -36,55 +36,25 @@ public class LoopGenerator extends CallbackManipulatorGenerator {
                     String out,
                     Function<AstNode, AstNode> returnFunction,
                     AstNode _) {
-                  return JSUtil.genCall(
-                    JSUtil.genName(_next),
-                    JSUtil.genFalse(),
-                    JSUtil.genUndefined()
-                  );
+                  return JSUtil.genCall(JSUtil.genName(_next));
                 }
               }).Generate(
                 _in  != null ? _loopGen.var : null,
                 _out != null ? _loopGen.var : null,
-                _returnFunction == null
-                  ? null
-                  : new Function<AstNode, AstNode>() {
-                      public AstNode call(AstNode result) {
-                        return JSUtil.genCall(
-                          JSUtil.genName(_next),
-                          JSUtil.genTrue(),
-                          result
-                        );
-                      }
-                    }
+                _returnFunction
               )
             )
           );
         }});
-        final AstNode _callbackCode = 
-          _callback != null
-            ? JSUtil.genBlock(
-                _callback
-                  .call(null)
-                  .Generate(_in, _out, _returnFunction)
-              )
-            : JSUtil.concatBlocks();
         add(new FunctionNode() {{
-          addParam(JSUtil.genName("isReturning$"));
-          addParam(JSUtil.genName("value$"));
           setBody(
-            JSUtil.genBlock(
-              _returnFunction == null
-                ? _callbackCode
-                :  new IfStatement() {{
-                     setCondition(JSUtil.genName("isReturning$"));
-                     setThenPart(
-                       JSUtil.genBlock(
-                       _returnFunction.call(JSUtil.genName("value$"))
-                       )
-                     );
-                     setElsePart(_callbackCode);
-                   }}
-            )
+            _callback != null
+              ? JSUtil.genBlock(
+                  _callback
+                    .call(null)
+                    .Generate(_in, _out, _returnFunction)
+                )
+              : JSUtil.concatBlocks()
           );
         }});
       }}

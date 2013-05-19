@@ -45,12 +45,9 @@ public class JSToPartition<E> {
       case Token.NAME:
         return exprFromName((Name)node);
       // Binary operators
-      // Note: AND and OR are not listed here, since they carry a different
-      // paper TODO basic implementation of AND, OR, NOT
 	    //   AVG, MIN, MAX, COUNT, // aggregation
 	    //   ASC, DESC, // sorting
 	    //   GROUP; // mapping and grouping
-      // meaning in javascript
       case Token.ADD:
       case Token.SUB:
       case Token.MUL:
@@ -62,9 +59,11 @@ public class JSToPartition<E> {
       case Token.GT:
       case Token.LE:
       case Token.GE:
+      case Token.AND:
+      case Token.OR:
         return exprFromInfixExpression((InfixExpression)node);
-      //case Token.NOT: // TODO: this has slightly different meaning in javascript
-      //  return exprFromUnaryExpression((UnaryExpression)node);
+      case Token.NOT:
+        return exprFromUnaryExpression((UnaryExpression)node);
       case Token.STRING:
         return exprFromStringLiteral((StringLiteral)node);
       case Token.NUMBER:
@@ -90,14 +89,16 @@ public class JSToPartition<E> {
         return exprFromReturnStatement((ReturnStatement)node);
       case Token.EMPTY:
         return factory.Skip();
-      case Token.BATCH_INLINE:
-        return exprFromBatchInlineLambda((BatchInline)node);
+      case Token.BATCH:
+        return exprFromBatchExpression((BatchExpression)node);
       case Token.LP:
         return exprFrom(((ParenthesizedExpression)node).getExpression());
       case Token.HOOK:
         return exprFromConditionalExpression((ConditionalExpression)node);
       case Token.GETPROP:
         return exprFromPropertyGet((PropertyGet)node);
+      case Token.OBJECTLIT:
+        return exprFromObjectLiteral((ObjectLiteral)node);
       default:
         System.err.println("INCOMPLETE: "+Token.typeToName(node.getType())+" "+node.getClass().getName());
         return JSUtil.noimpl();
@@ -137,7 +138,7 @@ public class JSToPartition<E> {
       case 0:
         return factory.Skip();
       case 1:
-        return factory.setExtra(sequence.get(0), JSMarkers.STATEMENT);
+        return factory.setExtra(sequence.get(0), JSMarkers.STATEMENT, true);
       default:
         return factory.Prim(Op.SEQ, sequence);
     }
@@ -179,18 +180,6 @@ public class JSToPartition<E> {
           propGet.getProperty().getIdentifier(),
           mapExprFrom(call.getArguments())
         );
-      case Token.BATCH_INLINE:
-        String funcName = JSUtil.identifierOf(
-          ((BatchInline)target).getFunctionName()
-        );
-        return factory.setExtra(
-          factory.DynamicCall(
-            factory.Skip(),
-            funcName,
-            mapExprFrom(call.getArguments())
-          ),
-          getBatchFunctionInfo(funcName)
-        );
       default:
         return JSUtil.noimpl();
     }
@@ -207,8 +196,19 @@ public class JSToPartition<E> {
     }
   }
 
+  private int condVarId = 0;
+  private E falsyValueOf(E expr) {
+    // javascript !x = batch (x!=x || x=="" || x==0 || x==false)
+    return factory.Prim(Op.OR,
+      factory.Prim(Op.NE, expr, expr),
+      factory.Prim(Op.EQ, expr, factory.Data("")),
+      factory.Prim(Op.EQ, expr, factory.Data(0)),
+      factory.Prim(Op.EQ, expr, factory.Data(false))
+    );
+  }
+
   private E exprFromInfixExpression(InfixExpression infix) {
-    Op binOp;
+    Op binOp = null;
     switch (infix.getOperator()) {
       case Token.ADD: binOp = Op.ADD; break;
       case Token.SUB: binOp = Op.SUB; break;
@@ -221,14 +221,63 @@ public class JSToPartition<E> {
       case Token.GT:  binOp = Op.GT;  break;
       case Token.LE:  binOp = Op.LE;  break;
       case Token.GE:  binOp = Op.GE;  break;
+    }
+    if (binOp != null) {
+      return factory.Prim(
+        binOp,
+        exprFrom(infix.getLeft()),
+        exprFrom(infix.getRight())
+      );
+    }
+    E x = exprFrom(infix.getLeft());
+    E y = exprFrom(infix.getRight());
+    String var = "cond$" + condVarId++;
+    switch (infix.getOperator()) {
+      // javascript x && y = batch if(falsy(x)) {x} else {y}
+      case Token.AND:
+        return factory.setExtra(
+          factory.Let(
+            var,
+            x,
+            factory.If(falsyValueOf(factory.Var(var)), factory.Var(var), y)
+          ),
+          JSMarkers.AND,
+          true
+        );
+      // javascript x || y = batch if(falsy(x)) {y} else {x}
+      case Token.OR:
+        return factory.setExtra(
+          factory.Let(
+            var,
+            x,
+            factory.If(falsyValueOf(factory.Var(var)), y, factory.Var(var))
+          ),
+          JSMarkers.OR,
+          true
+        );
       default:
         return JSUtil.noimpl();
     }
-    return factory.Prim(
-      binOp,
-      exprFrom(infix.getLeft()),
-      exprFrom(infix.getRight())
-    );
+      
+  }
+      
+
+  private E exprFromUnaryExpression(UnaryExpression unary) {
+    switch (unary.getOperator()) {
+      case Token.NOT:
+        String var = "cond$" + condVarId++;
+        return factory.setExtra(
+          factory.Let(
+            var,
+            exprFrom(unary.getOperand()),
+            falsyValueOf(factory.Var(var))
+          ),
+          JSMarkers.NOT,
+          true
+        );
+      default:
+        return JSUtil.noimpl();
+    }
   }
 
   private E exprFromStringLiteral(StringLiteral literal) {
@@ -309,7 +358,8 @@ public class JSToPartition<E> {
         exprFrom(ifStmt.getThenPart()),
         exprFrom(ifStmt.getElsePart())
       ),
-      JSMarkers.IF_STATEMENT
+      JSMarkers.IF_STATEMENT,
+      true
     );
   }
 
@@ -339,7 +389,11 @@ public class JSToPartition<E> {
 
   private E exprFromReturnStatement(ReturnStatement ret) {
     if (isReturnRemote) {
-      return factory.setExtra(exprFrom(ret.getReturnValue()), JSMarkers.RETURN);
+      return factory.setExtra(
+        exprFrom(ret.getReturnValue()),
+        JSMarkers.RETURN,
+        true
+      );
     } else {
       return factory.Other(JSMarkers.RETURN, exprFrom(ret.getReturnValue()));
     }
@@ -352,28 +406,74 @@ public class JSToPartition<E> {
     );
   }
 
-  private E exprFromBatchInlineLambda(BatchInline inline) {
-    String funcName = JSUtil.identifierOf(inline.getFunctionName());
-    DynamicCallInfo info = getBatchFunctionInfo(funcName);
-    if (info.returns != Place.REMOTE) {
-      throw new Error("Inlined batch lambdas must return remote values");
+  private E exprFromBatchExpression(BatchExpression batch) {
+    switch (batch.getExpression().getType()) {
+      case Token.NAME: {
+        String funcName = JSUtil.identifierOf(batch.getExpression());
+        DynamicCallInfo info = getBatchFunctionInfo(funcName);
+        if (info.returns != Place.REMOTE) {
+          throw new Error(
+            "Using a batch functions as a first-class value, "
+            + "requires that the batch function returns a remote value"
+          );
+        }
+        if (info.arguments.size()!=1 || info.arguments.get(0) != Place.REMOTE) {
+          throw new Error(
+            "Using a batch functions as a first-class value, "
+            + "requires that the batch function takes exactly 1 remote argument"
+          );
+        }
+        return factory.Fun(
+          "arg",
+          factory.setExtra(
+            factory.DynamicCall(
+              factory.Skip(),
+              funcName,
+              new ArrayList<E>() {{
+                add(factory.Var("arg"));
+              }}
+            ),
+            DynamicCallInfo.TYPE_INFO_KEY,
+            getBatchFunctionInfo(funcName)
+          )
+        );
+      }
+        
+      case Token.CALL: {
+        FunctionCall call = (FunctionCall)batch.getExpression();
+        String funcName = JSUtil.mustIdentifierOf(
+          call.getTarget()
+        );
+        return factory.setExtra(
+          factory.DynamicCall(
+            factory.Skip(),
+            funcName,
+            mapExprFrom(call.getArguments())
+          ),
+          DynamicCallInfo.TYPE_INFO_KEY,
+          getBatchFunctionInfo(funcName)
+        );
+      }
+      
+      default:
+        return JSUtil.noimpl();
     }
-    if (info.arguments.size() != 1 || info.arguments.get(0) != Place.REMOTE) {
-      throw new Error("Inlined batch lambdas must take exactly 1 remote value");
+  }
+
+  private E exprFromObjectLiteral(ObjectLiteral obj) {
+    List<E> elements = new ArrayList<E>(obj.getElements().size());
+    for (ObjectProperty elem : obj.getElements()) {
+      elements.add(
+        factory.Other(
+          new JSMarkerWithInfo<String>(
+            JSMarkers.PROPERTY,
+            JSUtil.mustIdentifierOf(elem.getLeft())
+          ),
+          exprFrom(elem.getRight())
+        )
+      );
     }
-    return factory.Fun(
-      "arg",
-      factory.setExtra(
-        factory.DynamicCall(
-          factory.Skip(),
-          funcName,
-          new ArrayList<E>() {{
-            add(factory.Var("arg"));
-          }}
-        ),
-        getBatchFunctionInfo(funcName)
-      )
-    );
+    return factory.Other(JSMarkers.OBJECT, elements);
   }
 
   private E exprFromOther(AstNode node) {

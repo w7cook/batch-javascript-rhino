@@ -18,7 +18,7 @@ batch function remote byProductName(remote product) {
   return product.ProductName;
 }
 
-batch (var db in __BATCH_SERVICE__) {
+batch __BATCH_SERVICE__.execute(function(db) {
   for each (var product in db.Products.orderBy(batch byProductName)) {
     if (batch isSoldOut(product)) {
       page.putText(product.ProductName + " is sold out!");
@@ -28,6 +28,6 @@ batch (var db in __BATCH_SERVICE__) {
   for each (var p2 in db.Products.orderBy(function(x){return x.ProductName;})) {
     page.putText(p2.ProductName);
   }
-}
+});
   };
 })(window.onload);
