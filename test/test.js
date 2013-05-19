@@ -64,45 +64,45 @@ batch __BATCH_SERVICE__.execute(function(root) {
     //  page.putText("FOO(" + x + ") = " + root.foo(x));
     //});
 
-    //batch function markedNameBySize(afile) {
-    //  var name = afile.getName();
-    //  if (afile.length() > 1000) {
-    //    return "* " + name;
-    //  } else {
-    //    return "- " + name;
-    //  }
-    //}
-    //var XX = {
-    //  foo: function() {
-    //    return 1000;
-    //  }
-    //}
+    batch function remote markedNameBySize(remote afile) {
+      var name = afile.getName();
+      if (afile.length() > 1000) {
+        return "* " + name;
+      } else {
+        return "- " + name;
+      }
+    }
+    var XX = {
+      foo: function() {
+        return 1000;
+      }
+    }
 
-    //batch function gt10(x) {
-    //  return x > 10;
-    //}
+    batch function remote gt100(remote x) {
+      return x > 100;
+    }
 
-    //batch __BATCH_SERVICE__.execute(function(root) {
-    //  page.putText(
-    //    "First pow of 2 > 10 = "
-    //    + root.firstPow2That(function(x) { return x > 10; }) // gt10
-    //  );
-    //  page.putText("Directory: " + root.getDir().getName());
-    //  for each (var file in root.getDir().listFiles()) {
-    //    page.putText(root.foo(XX.foo()));
-    //    page.putText(batch markedNameBySize(file));
-    //    if (file.isDirectory()) {
-    //      for each (var inner in file.listFiles()) {
-    //        page.putText("-" + batch markedNameBySize(inner));
-    //        if (inner.isDirectory()) {
-    //          for each (var inner2 in inner.listFiles()) {
-    //            page.putText("--" + batch markedNameBySize(inner2));
-    //          }
-    //        }
-    //      }
-    //    }
-    //  }
-    //  page.putText("EOD");
-    //});
+    batch __BATCH_SERVICE__.execute(function(root) {
+      page.putText(
+        "First pow of 2 > 100 = "
+        + root.firstPow2That(batch gt100)
+      );
+      page.putText(root.foo(XX.foo()));
+      page.putText("Directory: " + root.getDir().getName());
+      for each (var file in root.getDir().listFiles()) {
+        page.putText(batch markedNameBySize(file));
+        if (file.isDirectory()) {
+          for each (var inner in file.listFiles()) {
+            page.putText("-" + batch markedNameBySize(inner));
+            if (inner.isDirectory()) {
+              for each (var inner2 in inner.listFiles()) {
+                page.putText("--" + batch markedNameBySize(inner2));
+              }
+            }
+          }
+        }
+      }
+      page.putText("EOD");
+    });
   };
 })(window.onload);
