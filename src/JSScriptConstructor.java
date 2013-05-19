@@ -40,6 +40,8 @@ class JSScriptConstructor extends PartitionFactoryHelper<AstNode> {
       literal = new NumberLiteral(((Number)value).doubleValue());
     } else if (value instanceof String) {
       literal = JSUtil.genStringLiteral((String)value);
+    } else if (value instanceof Boolean) {
+      literal = JSUtil.genBoolean((Boolean)value);
     } else {
       return JSUtil.noimpl();
     }
@@ -185,7 +187,7 @@ class JSScriptConstructor extends PartitionFactoryHelper<AstNode> {
   }
 
   @Override
-  public AstNode setExtra(AstNode exp, Object extra) {
+  public AstNode setExtra(AstNode exp, Object key, Object info) {
     return exp;
   }
 

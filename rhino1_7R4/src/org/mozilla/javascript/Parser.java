@@ -1348,10 +1348,8 @@ public class Parser
         int batchPos = ts.tokenBeg, lineno = ts.lineno;
         if (matchToken(Token.FUNCTION)) {
           return batchFunction(batchPos, lineno);
-        } else if (peekToken() == Token.LP) {
-          return batchLoop(batchPos, lineno);
         } else {
-          return batchInline(batchPos, lineno);
+          return batchExpression(batchPos, lineno);
         }
     }
 
@@ -1371,84 +1369,15 @@ public class Parser
       return bf;
     }
 
-    private AstNode batchInline(int batchPos, int lineno)
+    private AstNode batchExpression(int batchPos, int lineno)
         throws IOException
     {
-      peekToken();
-      BatchInline bi = new BatchInline(
+      BatchExpression b = new BatchExpression(
         batchPos,
-        createNameNode()
+        unaryExpr()
       );
-      bi.setLineno(lineno);
-      consumeToken();
-      return memberExprTail(true, bi);
-    }
-
-    private Loop batchLoop(int batchPos, int lineno)
-        throws IOException
-    {
-        boolean hasIn = false;
-        int inPos = -1, lp = -1, rp = -1;
-        AstNode init = null;  // init is also foo in 'foo in object'
-        AstNode iterObj = null;  // object in 'foo in object'
-        Loop pn = null;
-
-        Scope tempScope = new Scope();
-        pushScope(tempScope);  // decide below what AST class to use
-        try {
-            if (mustMatchToken(Token.LP, "msg.no.paren.batch"))
-                lp = ts.tokenBeg - batchPos;
-            int tt = peekToken();
-
-            init = forLoopInit(tt);
-
-            if (mustMatchToken(Token.IN, "msg.no.in.batch")) {
-              hasIn = true;
-              inPos = ts.tokenBeg - batchPos;
-              iterObj = expr();
-            }
-
-            if (mustMatchToken(Token.RP, "msg.no.paren.batch.ctrl"))
-                rp = ts.tokenBeg - batchPos;
-
-            if (hasIn) {
-              BatchLoop bl = new BatchLoop(batchPos);
-              if (init instanceof VariableDeclaration) {
-                  // check that there was only one variable given
-                  if (((VariableDeclaration)init).getVariables().size() > 1) {
-                      reportError("msg.mult.index");
-                  }
-              }
-              bl.setIterator(init);
-              bl.setIteratedObject(iterObj);
-              bl.setInPosition(inPos);
-              pn = bl;
-            }
-
-            // replace temp scope with the new loop object
-            currentScope.replaceWith(pn);
-            popScope();
-
-            // We have to parse the body -after- creating the loop node,
-            // so that the loop node appears in the loopSet, allowing
-            // break/continue statements to find the enclosing loop.
-            enterLoop(pn);
-            try {
-                AstNode body = statement();
-                pn.setLength(getNodeEnd(body) - batchPos);
-                pn.setBody(body);
-            } finally {
-                exitLoop();
-            }
-
-        } finally {
-            if (currentScope == tempScope) {
-                popScope();
-            }
-        }
-        pn.setParens(lp, rp);
-        pn.setLineno(lineno);
-        return pn;
+      b.setLineno(lineno);
+      return b;
     }
 
     private AstNode forLoopInit(int tt) throws IOException {
@@ -2418,7 +2347,7 @@ public class Parser
           case Token.BATCH:
               int batchPos = ts.tokenBeg;
               consumeToken();
-              return batchInline(batchPos, line);
+              return batchExpression(batchPos, line);
 
           case Token.LT:
               // XML stream encountered in expression.

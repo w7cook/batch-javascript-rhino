@@ -31,7 +31,6 @@ public class BatchCompiler implements NodeVisitor {
     String fileName = args[0];
     FileReader reader = new FileReader(new File(fileName));
     Parser parser = new Parser();
-    // TODO Extra: only parse batch code
     AstRoot ast = parser.parse(reader, fileName, /*linenumber*/ 0);
     BatchCompiler compiler = new BatchCompiler();
     ast.visit(compiler);
@@ -54,14 +53,16 @@ public class BatchCompiler implements NodeVisitor {
 
   // Ordered by absolute position in source
   private List<TargetBatch<? extends AstNode>> batchNodes = new ArrayList<>();
-  private List<TargetBatch<BatchLoop>> batchLoops = new ArrayList<>();
+  private List<TargetBatch<BatchExpression>> batchExprs = new ArrayList<>();
   private List<TargetBatch<BatchFunction>> batchFunctionNodes =
     new ArrayList<>();
   private Map<String, DynamicCallInfo> batchFunctionsInfo = new HashMap<>();
 
   public boolean visit(AstNode node) {
-    if (node instanceof BatchLoop) {
-      batchLoops.add(new TargetBatch<BatchLoop>((BatchLoop)node, null));
+    if (node instanceof BatchExpression) {
+      batchExprs.add(
+        new TargetBatch<BatchExpression>((BatchExpression)node, null)
+      );
       return false;
     } else if (node instanceof BatchFunction) {
       batchFunctionNodes.add(
@@ -76,7 +77,7 @@ public class BatchCompiler implements NodeVisitor {
   public Iterable<TargetBatch<? extends AstNode>> compileBatches() {
     batchNodes.clear();
     batchNodes.addAll(compileBatchFunctions());
-    batchNodes.addAll(compileBatchLoops());
+    batchNodes.addAll(compileBatchExpressions());
     // Guarentee order of nodes
     Collections.sort(batchNodes, new PositionComparator());
     return batchNodes;
@@ -162,7 +163,7 @@ public class BatchCompiler implements NodeVisitor {
           case LOCAL:
             Generator local = stage
               .action()
-              .runExtra(new JSPartitionFactory(batchFunctionsInfo));
+              .runExtra(new LocalPartitionToJS(batchFunctionsInfo));
             if (preNode == null && script == null) {
               preNode = local.Generate(null, "s$", null);
             } else {
@@ -201,15 +202,22 @@ public class BatchCompiler implements NodeVisitor {
         AstNode partialScript = _script;
         addParam(JSUtil.genName("s$"));
         addParam(JSUtil.genName("f$"));
-        for (AstNode astParam : _func.getParams()) {
-          BatchParam param = (BatchParam)astParam;
+        Iterator<AstNode> argIt = _func.getParams().iterator();
+        Iterator<Place> placeIt =
+          batchFunctionsInfo.get(_func.getName()).arguments.iterator();
+        while (argIt.hasNext()) {
+          BatchParam param = (BatchParam)argIt.next();
+          Place place = placeIt.next();
+
           String paramName = JSUtil.mustIdentifierOf(param.getParameter());
           addParam(JSUtil.genName(paramName));
-          partialScript = _sc.Let(
-            paramName,
-            JSUtil.genName(paramName),
-            partialScript
-          );
+          if (place == Place.REMOTE) {
+            partialScript = _sc.Let(
+              paramName,
+              JSUtil.genName(paramName),
+              partialScript
+            );
+          }
         }
         final AstNode _fullScript = partialScript;
         setBody(JSUtil.concatBlocks(
@@ -255,38 +263,37 @@ public class BatchCompiler implements NodeVisitor {
     return batchFunctionNodes;
   }
 
-  private List<TargetBatch<BatchLoop>> compileBatchLoops() {
-    for (TargetBatch<BatchLoop> loop : batchLoops) {
-      loop.compiled = new Scope();
-      loop.compiled.addChild(JSUtil.genDeclare(
+  private List<TargetBatch<BatchExpression>> compileBatchExpressions() {
+    for (TargetBatch<BatchExpression> expr : batchExprs) {
+      expr.compiled = new Scope();
+      expr.compiled.addChild(JSUtil.genDeclare(
         "s$",
         new ObjectLiteral()
       ));
 
-      BatchLoop batch = loop.original;
-      String root = null;
-      switch (batch.getIterator().getType()) {
-        case Token.VAR:
-          root =
-            ((Name)((VariableDeclaration)batch.getIterator())
-              .getVariables().get(0).getTarget()
-            ).getIdentifier();
-          break;
-        case Token.NAME:
-          root = ((Name)batch.getIterator()).getIdentifier();
-          break;
-        default:
-          JSUtil.noimpl();
+      BatchExpression batch = expr.original;
+      if (!(batch.getExpression() instanceof FunctionCall)) {
+        return invalidBatchBlock();
       }
-      String service = null;
-      switch (batch.getIteratedObject().getType()) {
-        case Token.NAME:
-          service = ((Name)batch.getIteratedObject()).getIdentifier();
-          break;
-        default:
-          JSUtil.noimpl();
+      FunctionCall call = (FunctionCall)batch.getExpression();
+      if (!(call.getTarget() instanceof PropertyGet)
+          || call.getArguments().size() != 1
+          || !(call.getArguments().get(0) instanceof FunctionNode)) {
+        return invalidBatchBlock();
       }
-      loop.compiled.addChild(
+      PropertyGet prop = (PropertyGet)call.getTarget();
+      String service = JSUtil.identifierOf(prop.getTarget());
+      FunctionNode callback = (FunctionNode)call.getArguments().get(0);
+      if (service == null
+          || !prop.getProperty().getIdentifier().equals("execute")
+          || callback.getParams().size() != 1) {
+        return invalidBatchBlock();
+      }
+      String root = JSUtil.identifierOf(callback.getParams().get(0));
+      if (root == null) {
+        return invalidBatchBlock();
+      }
+      expr.compiled.addChild(
         JSUtil.genDeclare(
           "f$",
           JSUtil.genCall(
@@ -302,7 +309,7 @@ public class BatchCompiler implements NodeVisitor {
             root,
             false,
             batchFunctionsInfo
-          ).exprFrom(batch.getBody());
+          ).exprFrom(callback.getBody());
       Environment env = new Environment(CodeModel.factory)
         .extend(CodeModel.factory.RootName(), null, Place.REMOTE);
       History history = origExpr.partition(Place.MOBILE, env);
@@ -314,7 +321,7 @@ public class BatchCompiler implements NodeVisitor {
           case LOCAL:
             AstNode local = stage
               .action()
-              .runExtra(new JSPartitionFactory(batchFunctionsInfo))
+              .runExtra(new LocalPartitionToJS(batchFunctionsInfo))
               .Generate("r$", "s$", null);
             if (preNode == null && script == null) {
               preNode = local;
@@ -328,15 +335,15 @@ public class BatchCompiler implements NodeVisitor {
         }
       }
       if (preNode != null) {
-        loop.compiled.addChild(JSUtil.genStatement(preNode));
+        expr.compiled.addChild(JSUtil.genStatement(preNode));
       }
       if (script != null) {
-        loop.compiled.addChild(JSUtil.genDeclare(
+        expr.compiled.addChild(JSUtil.genDeclare(
           "script$",
           script
         ));
         final AstNode _postNode = postNode;
-        loop.compiled.addChild(new ExpressionStatement(JSUtil.genCall(
+        expr.compiled.addChild(new ExpressionStatement(JSUtil.genCall(
           JSUtil.genName(service),
           "execute",
           new ArrayList<AstNode>() {{
@@ -356,7 +363,14 @@ public class BatchCompiler implements NodeVisitor {
         JSUtil.noimpl();
       }
     }
-    return batchLoops;
+    return batchExprs;
+  }
+
+  private static <E> E invalidBatchBlock() {
+    throw new Error(
+      "Batch blocks must be of the form: "
+      + "batch <SERVICE>.execute(function(<ROOT>) {...}"
+    );
   }
 
   class TargetBatch<O> {

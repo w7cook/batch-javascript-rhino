@@ -38,7 +38,6 @@ public class IfGenerator extends CallbackManipulatorGenerator {
           final Function<AstNode, AstNode> _returnFunction,
           final AstNode _condition) {
         final String _callbackName = _ifGen.genNextString();
-        final boolean _cantReturn = _returnFunction == null;
         final Function<AstNode, Generator> _postBranch =
           new JSGenFunction<AstNode>() {
             public AstNode Generate(
@@ -50,35 +49,10 @@ public class IfGenerator extends CallbackManipulatorGenerator {
                 JSUtil.isEmpty(_result)
                   ? JSUtil.genUndefined()
                   : _result;
-              if (_cantReturn) {
-                return JSUtil.genCall(
-                  JSUtil.genName(_callbackName),
-                  _valueResult
-                );
-              } else {
-                return JSUtil.genCall(
-                  JSUtil.genName(_callbackName),
-                  JSUtil.genFalse(),
-                  _valueResult
-                );
-              }
-            }
-          };
-        final Function<AstNode, AstNode> _returnCallback =
-          new Function<AstNode, AstNode>() {
-            public AstNode call(AstNode result) {
-              if (_cantReturn) {
-                return JSUtil.genCall(
-                  JSUtil.genName(_callbackName),
-                  result
-                );
-              } else {
-                return JSUtil.genCall(
-                  JSUtil.genName(_callbackName),
-                  JSUtil.genTrue(),
-                  result
-                );
-              }
+              return JSUtil.genCall(
+                JSUtil.genName(_callbackName),
+                _valueResult
+              );
             }
           };
         return new FunctionCall() {{
@@ -89,49 +63,30 @@ public class IfGenerator extends CallbackManipulatorGenerator {
               setThenPart(JSUtil.genBlock(
                 _ifGen.thenExprGen
                   .Bind(_postBranch)
-                  .Generate(_in, _out, _returnCallback)
+                  .Generate(_in, _out, _returnFunction)
               ));
               setElsePart(JSUtil.genBlock(
                 _ifGen.elseExprGen
                   .Bind(_postBranch)
-                  .Generate(_in, _out, _returnCallback)
+                  .Generate(_in, _out, _returnFunction)
               ));
             }}));
           }}));
           addArgument(new FunctionNode() {{
-            if (!_cantReturn) {
-              addParam(JSUtil.genName("isReturning$"));
-            }
             addParam(JSUtil.genName("value$"));
-            final AstNode _callbackCode =
+            setBody(
               _callback != null
                 ? JSUtil.genBlock(
                     _callback
                       .call(
                         // only pass value if this is not a statement
-                        JSMarkers.IF_STATEMENT.equals(_ifGen.extraInfo)
+                        _ifGen.extras.get(JSMarkers.IF_STATEMENT) == true
                           ? null
                           : JSUtil.genName("value$")
                       )
                       .Generate(_in, _out, _returnFunction)
                   )
-                : JSUtil.concatBlocks();
-            setBody(
-              _cantReturn
-                ? _callbackCode
-                : JSUtil.genBlock(
-                    new IfStatement() {{
-                      setCondition(JSUtil.genName("isReturning$"));
-                      setThenPart(
-                        JSUtil.genBlock(
-                        _returnFunction.call(JSUtil.genName("value$"))
-                        )
-                      );
-                      if (_callback != null) {
-                        setElsePart(_callbackCode);
-                      }
-                    }}
-                  )
+                : JSUtil.concatBlocks()
             );
           }});
         }};
