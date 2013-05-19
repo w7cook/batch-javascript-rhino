@@ -295,6 +295,11 @@ window.onload = (function(old_onload) {
       },
     };
 
+    function breakString(string) {
+      var match = string.match(/^(.*)\n((.|\n)*)/);
+      return [match[1], match[2]];
+    }
+
     // onload actions
     if (old_onload) old_onload.apply(window, arguments);
 
@@ -368,8 +373,8 @@ window.onload = (function(old_onload) {
             next_part = this.incomplete_version + next_part;
             this.incomplete_version = '';
           }
-          var version_and_rest = next_part.split('\n', 2);
-          if (version_and_rest.length > 0) {
+          var version_and_rest = breakString(next_part);
+          if (version_and_rest.length > 1) {
             this.version = version_and_rest[0];
             if (this.version !== 'Batch 1.0 JSON 1.0') {
               throw new Error(
@@ -398,7 +403,7 @@ window.onload = (function(old_onload) {
     var callbacks = {};
     var asyncObjects = {};
     websocket.onmessage = function(event) {
-      var parts = event.data.split('\n', 2);
+      var parts = breakString(event.data);
       var id = parts[0];
       var result = parts[1];
       if (callbacks[id]) {
