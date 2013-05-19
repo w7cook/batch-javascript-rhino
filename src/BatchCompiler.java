@@ -31,7 +31,6 @@ public class BatchCompiler implements NodeVisitor {
     String fileName = args[0];
     FileReader reader = new FileReader(new File(fileName));
     Parser parser = new Parser();
-    // TODO Extra: only parse batch code
     AstRoot ast = parser.parse(reader, fileName, /*linenumber*/ 0);
     BatchCompiler compiler = new BatchCompiler();
     ast.visit(compiler);
@@ -164,7 +163,7 @@ public class BatchCompiler implements NodeVisitor {
           case LOCAL:
             Generator local = stage
               .action()
-              .runExtra(new JSPartitionFactory(batchFunctionsInfo));
+              .runExtra(new LocalPartitionToJS(batchFunctionsInfo));
             if (preNode == null && script == null) {
               preNode = local.Generate(null, "s$", null);
             } else {
@@ -322,7 +321,7 @@ public class BatchCompiler implements NodeVisitor {
           case LOCAL:
             AstNode local = stage
               .action()
-              .runExtra(new JSPartitionFactory(batchFunctionsInfo))
+              .runExtra(new LocalPartitionToJS(batchFunctionsInfo))
               .Generate("r$", "s$", null);
             if (preNode == null && script == null) {
               preNode = local;

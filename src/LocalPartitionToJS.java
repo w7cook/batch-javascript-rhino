@@ -7,12 +7,12 @@ import batch.partition.*;
 import java.util.List;
 import java.util.Map;
 
-public class JSPartitionFactory extends PartitionFactoryHelper<Generator> {
+public class LocalPartitionToJS extends PartitionFactoryHelper<Generator> {
 
   private Map<String, DynamicCallInfo> batchFunctionsInfo;
   private static final RawJSFactory rawJSFactory = new RawJSFactory();
 
-  public JSPartitionFactory(Map<String, DynamicCallInfo> batchFunctionsInfo) {
+  public LocalPartitionToJS(Map<String, DynamicCallInfo> batchFunctionsInfo) {
     this.batchFunctionsInfo = batchFunctionsInfo;
   }
 
